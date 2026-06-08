@@ -46,3 +46,6 @@ documenting source, build command, and target ABI.
 - License or attribution removals
 - Rendering rewrites bundled with Android project migration
 - Unverified NDK version jumps
+
+This list is a roadmap guardrail, not a permanent rule.
+Strong user demand and strong technical rationale can change it.
