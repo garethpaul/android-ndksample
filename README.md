@@ -1,5 +1,8 @@
 # android-ndksample
 
+<!-- README-OVERVIEW-IMAGE -->
+![Project overview](docs/readme-overview.svg)
+
 ## Overview
 
 `garethpaul/android-ndksample` is an Android application or sample. Android NDK Sample
@@ -78,4 +81,3 @@ Keep changes small and tied to the project that is already present in this repos
 Prior README summary:
 
 > Android NDK Sample <!-- README-OVERVIEW-IMAGE --> Legacy Android NDK sample for the San Angeles Observation OpenGL ES demo. Project Shape This repository preserves an older Ant/NDK Android project: - `project.properties` declares the legacy Android target. - `AndroidManifest.xml` and `src/` contain the Android activity wrapper. - `jni/` contains the native C source, NDK makefiles, and upstream license files.
-
