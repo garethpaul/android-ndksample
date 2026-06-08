@@ -20,12 +20,12 @@ source check that works without an installed Android NDK.
 
 The repository is an old Android NDK sample with JNI C sources, Ant-style
 Android project metadata, checked-in runtime `.so` files under `libs/`, and
-checked-in debug/intermediate `.so` files under `obj/local/`. There is no
-README or local verification command, and `ndk-build` is not installed on this
-host, so a safe first pass should not regenerate binaries or migrate the build
-system. The highest-value baseline is to make binary provenance and expected
-future rebuild steps explicit while removing generated `obj/` artifacts from
-version control.
+checked-in debug/intermediate `.so` files under `obj/local/`. The documentation
+baseline now needs to be strict about binary provenance, and `ndk-build` is not
+installed on this host, so this pass should not regenerate binaries or migrate
+the build system. The highest-value baseline is to make binary provenance and
+expected future rebuild steps explicit while removing generated `obj/`
+artifacts from version control.
 
 ---
 

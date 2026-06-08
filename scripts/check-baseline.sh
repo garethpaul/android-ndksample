@@ -48,6 +48,7 @@ require_contains ".gitignore" "obj/" "Generated obj/ directory must be ignored."
 require_contains "README.md" "Ant/NDK Android project" "README must document the legacy Ant/NDK shape."
 require_contains "README.md" "libs/*/libsanangeles.so" "README must document checked-in runtime libraries."
 require_contains "README.md" "Do not replace checked-in \`.so\` files" "README must document binary replacement rules."
+require_contains "project.properties" "target=Google Inc.:Google APIs:21" "project.properties must preserve the Google APIs 21 target."
 require_contains "jni/Android.mk" "LOCAL_MODULE := sanangeles" "NDK module name must remain documented in Android.mk."
 require_contains "jni/Application.mk" "APP_ABI := all" "Application.mk must preserve current ABI baseline."
 
