@@ -1,5 +1,8 @@
 # Android NDK Sample
 
+<!-- README-OVERVIEW-IMAGE -->
+![Project overview](docs/readme-overview.svg)
+
 Legacy Android NDK sample for the San Angeles Observation OpenGL ES demo.
 
 ## Project Shape
