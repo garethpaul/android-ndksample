@@ -36,6 +36,11 @@ Contribution rules:
 
 ## Security
 
+Canonical security policy and reporting:
+
+- [`SECURITY.md`](SECURITY.md)
+
+
 Native binaries and generated libraries should be treated as build artifacts
 that need clear provenance. Do not replace checked-in `.so` files without
 documenting source, build command, and target ABI.
