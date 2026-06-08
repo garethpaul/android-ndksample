@@ -37,17 +37,27 @@ for path in \
   "jni/license.txt" \
   "jni/license-BSD.txt" \
   "jni/license-LGPL.txt" \
+  "libs/SHA256SUMS" \
   "lint.xml"; do
   require_file "$path" "Required baseline file is missing: $path"
 done
 
 for abi in arm64-v8a armeabi-v7a armeabi mips mips64 x86 x86_64; do
   require_file "libs/$abi/libsanangeles.so" "Runtime native library is missing for ABI: $abi"
+  require_contains "libs/SHA256SUMS" "libs/$abi/libsanangeles.so" "Checksum manifest must include ABI library: $abi"
 done
+
+if command -v sha256sum >/dev/null 2>&1; then
+  if ! (cd "$ROOT_DIR" && sha256sum -c libs/SHA256SUMS >/dev/null); then
+    printf '%s\n' "Checked-in native library checksums must validate." >&2
+    exit 1
+  fi
+fi
 
 require_contains ".gitignore" "obj/" "Generated obj/ directory must be ignored."
 require_contains "README.md" "Ant/NDK Android project" "README must document the legacy Ant/NDK shape."
 require_contains "README.md" "libs/*/libsanangeles.so" "README must document checked-in runtime libraries."
+require_contains "README.md" "libs/SHA256SUMS" "README must document the native library checksum manifest."
 require_contains "README.md" "Do not replace checked-in \`.so\` files" "README must document binary replacement rules."
 require_contains "README.md" "lint --exitcode ." "README must document SDK-backed lint verification."
 require_contains "project.properties" "target=Google Inc.:Google APIs:21" "project.properties must preserve the Google APIs 21 target."
@@ -62,6 +72,14 @@ if [ ! -f "$ROOT_DIR/CHANGES.md" ]; then
   printf '%s\n' "CHANGES.md is required for repository maintenance history." >&2
   exit 1
 fi
+
+if [ ! -f "$ROOT_DIR/Makefile" ]; then
+  printf '%s\n' "Makefile is required for the repository check wrapper." >&2
+  exit 1
+fi
+
+require_contains "Makefile" "scripts/check-baseline.sh" "Makefile must run the SDK-free baseline check."
+require_contains "README.md" "make check" "README must document the make check wrapper."
 
 if [ -f "$ROOT_DIR/res/layout/main.xml" ]; then
   printf '%s\n' "Unused starter layout must not be restored." >&2

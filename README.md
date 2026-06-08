@@ -5,73 +5,68 @@
 
 ## Overview
 
-`garethpaul/android-ndksample` is an Android application or sample. Android NDK Sample
+Legacy Android NDK sample for the San Angeles Observation OpenGL ES demo.
 
-This README is based on the checked-in source, manifests, scripts, and repository metadata on the `master` branch. The project language mix found during review was: C (5), C/C++ headers (4), Java (1), shell (1).
+## Project Shape
 
-## Repository Contents
+This repository preserves an older Ant/NDK Android project:
 
-- `README.md` - project overview and local usage notes
-- `AndroidManifest.xml` - Android application manifest
-- `docs` - source or example code
-- `jni` - source or example code
-- `res` - source or example code
-- `scripts` - source or example code
-- `SECURITY.md` - security reporting and disclosure guidance
-- `src` - source or example code
-- `VISION.md` - project direction and maintenance guardrails
+- `project.properties` declares the legacy Android target.
+- `AndroidManifest.xml` and `src/` contain the Android activity wrapper.
+- `jni/` contains the native C source, NDK makefiles, and upstream license files.
+- `libs/*/libsanangeles.so` contains checked-in runtime native libraries for the current sample.
+- `libs/SHA256SUMS` records checksums for the checked-in runtime libraries.
 
-Additional scan context:
+The generated `obj/` directory is ignored and should not be committed. Runtime
+libraries in `libs/` are kept until they can be regenerated with a documented
+NDK version and smoke-tested on an emulator or device.
+`libs/SHA256SUMS` records the current checksum for each checked-in runtime
+library.
 
-- Source directories: docs, jni, res, scripts, src
-- Dependency and build manifests: AndroidManifest.xml
-- Entry points or build surfaces: none detected
-- Test-looking files: no obvious test files detected
+## Verify
 
-## Getting Started
+Run the SDK-free baseline check through the root wrapper:
 
-### Prerequisites
-
-- Git
-- Android Studio or a compatible Android SDK
-- Gradle or the checked-in Gradle wrapper when present
-
-### Setup
-
-```bash
-git clone https://github.com/garethpaul/android-ndksample.git
-cd android-ndksample
+```sh
+make check
 ```
 
-The setup commands above are derived from repository files. Legacy mobile, Python, or JavaScript samples may require older SDKs or package versions than a modern workstation uses by default.
+or run the underlying script directly:
 
-## Running or Using the Project
+```sh
+scripts/check-baseline.sh
+```
 
-- Use Android Studio to open the project or run `gradle assembleDebug` when the Android SDK is configured.
+This check validates the repository structure, required native source/license
+files, expected ABI runtime libraries, checksum manifest, and `obj/` ignore
+policy. It does not require an Android SDK or NDK.
 
-## Testing and Verification
+If the legacy Android SDK tools are available, run the Ant-project lint gate:
 
-- `gradle test` or Android Studio's test runner when the SDK is configured
+```sh
+ANDROID_HOME=/home/gjones/android-sdk ANDROID_SDK_ROOT=/home/gjones/android-sdk \
+  /home/gjones/android-sdk/tools/bin/lint --exitcode .
+```
 
-When the required SDK or runtime is unavailable, use static checks and source review first, then verify on a machine that has the matching platform toolchain.
+`lint.xml` suppresses only findings that are blocked by the current provenance
+baseline: no compiled class files, deferred target-SDK policy, no launcher icon,
+and no app-indexing intent for this native rendering sample.
 
-## Configuration and Secrets
+## Native Rebuilds
 
-- No required secret or credential file was identified in the repository scan. If you add integrations later, keep secrets out of git.
+Do not replace checked-in `.so` files without documenting:
 
-## Security and Privacy Notes
+- Android NDK version.
+- Exact rebuild command.
+- Target ABI list.
+- Resulting library checksums.
+- Runtime launch or smoke-test evidence.
 
-- Review changes touching network requests, sockets, or service endpoints; examples from the scan include AndroidManifest.xml, jni/README.txt, jni/app-linux.c, jni/app-win32.c, and 6 more.
-- Review changes touching mobile permissions or privacy-sensitive device data; examples from the scan include jni/README.txt, jni/app-linux.c, jni/cams.h, jni/demo.c, and 3 more.
-- Review changes touching file, media, JSON, XML, CSV, OCR, or data parsing; examples from the scan include AndroidManifest.xml, jni/demo.c, lint.xml, res/values/strings.xml, and 1 more.
-- Review changes touching database, model, or persistence code; examples from the scan include docs/plans/2026-06-08-ndk-provenance-baseline.md.
+`ndk-build` is not currently available in this environment, so binary
+regeneration is deferred.
 
-## Maintenance Notes
+## Modernization Notes
 
-- This looks like a legacy Android project or sample. Expect Android SDK, Gradle, and support-library versions to matter.
-- See `SECURITY.md` for vulnerability reporting and safe research guidance.
-- See `VISION.md` for project direction and contribution guardrails.
-
-## Contributing
-
-Keep changes small and tied to the project that is already present in this repository. For code changes, document the toolchain used, avoid committing generated dependency directories or local configuration, and update this README when setup or verification steps change.
+A future pass should establish a reproducible NDK rebuild first, then migrate
+from Ant/project.properties to a supported Gradle/CMake Android project with
+CI, checksums, and emulator or device verification.
