@@ -25,7 +25,5 @@ libraries so future binary replacements are intentional and reviewable.
 
 - `make check`
 - `scripts/check-baseline.sh`
+- `ANDROID_HOME=/home/gjones/android-sdk ANDROID_SDK_ROOT=/home/gjones/android-sdk /home/gjones/android-sdk/tools/bin/lint --exitcode .`
 - `git diff --check`
-
-The SDK-backed `lint --exitcode .` gate remains documented in README and was
-not run in this environment.
