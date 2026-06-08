@@ -1,5 +1,8 @@
 ## Android NDK Sample Vision
 
+This document explains the current state and direction of the project.
+Project overview and developer docs: [`README.md`](README.md)
+
 Android NDK Sample is an Android port of the San Angeles Observation OpenGL ES
 demo, with native C sources, Android NDK build files, and prebuilt shared
 libraries for several ABIs.
