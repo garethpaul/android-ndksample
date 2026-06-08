@@ -1,6 +1,6 @@
 ---
 title: Android NDK Sample Provenance Baseline
-type: docs
+type: chore
 status: completed
 date: 2026-06-08
 ---
@@ -9,83 +9,107 @@ date: 2026-06-08
 
 ## Summary
 
-Raise the baseline for the legacy San Angeles Android NDK sample by documenting its preserved native artifact state and adding an SDK-free check that protects source, license, ABI, and Android target metadata.
+Raise the engineering baseline for the legacy San Angeles NDK sample by
+documenting the Ant/NDK project shape, preserving source and license
+expectations, removing tracked intermediate native build outputs, and adding a
+source check that works without an installed Android NDK.
 
 ---
 
 ## Problem Frame
 
-The repository contains C sources, Android NDK makefiles, checked-in `libs/*.so` binaries, and checked-in `obj/` build outputs. This environment does not provide `ndk-build` or `ant`, so removing or regenerating native artifacts would be speculative. The safer first step is to make artifact provenance explicit and guard the current recoverable baseline.
+The repository is an old Android NDK sample with JNI C sources, Ant-style
+Android project metadata, checked-in runtime `.so` files under `libs/`, and
+checked-in debug/intermediate `.so` files under `obj/local/`. There is no
+README or local verification command, and `ndk-build` is not installed on this
+host, so a safe first pass should not regenerate binaries or migrate the build
+system. The highest-value baseline is to make binary provenance and expected
+future rebuild steps explicit while removing generated `obj/` artifacts from
+version control.
 
 ---
 
 ## Requirements
 
-- R1. The repository must document that checked-in `.so` files and `obj/` files are legacy artifacts that should not be replaced without provenance.
-- R2. The repository must document the missing local `ndk-build` and `ant` tool prerequisites for full rebuilds.
-- R3. The repository must include a source/provenance check that runs without Android SDK, NDK, or Ant.
-- R4. The check must verify required native source, makefiles, license files, ABI libraries, and Android target metadata are present.
-- R5. The plan must avoid deleting generated native artifacts until they can be regenerated with a documented NDK version.
+- R1. The repository must document the legacy Ant/NDK project structure and current verification limits.
+- R2. Runtime ABI libraries under `libs/` must remain present for the current sample.
+- R3. Intermediate `obj/local` native build outputs must be removed from version control and ignored going forward.
+- R4. License and attribution files under `jni/` must remain present.
+- R5. A local SDK-free source check must verify README, plan, source, license, ABI library, and ignore-file expectations.
+- R6. The plan must defer NDK rebuilds, Gradle migration, and binary replacement until an NDK version and verification path are documented.
 
 ---
 
 ## Key Technical Decisions
 
-- **Preserve checked-in binaries for now:** Without `ndk-build`, removing `.so` files would make the sample harder to run or inspect.
-- **Guard provenance instead of modernizing:** The first baseline is documentation and integrity checks, not a migration to Gradle/CMake or newer NDK APIs.
-- **Use SDK-free checks:** Shell checks can verify source and metadata before native toolchains are installed.
-- **Keep licenses visible:** The sample includes LGPL and BSD license files that must stay with the native sources.
+- **Keep runtime binaries, remove intermediates:** `libs/*/libsanangeles.so` are the deployable native libraries for this legacy project; `obj/local/*` are generated build artifacts and should not stay tracked.
+- **Document before regenerating binaries:** Without `ndk-build` installed, replacing `.so` files would weaken provenance instead of improving it.
+- **Use an SDK-free check:** POSIX shell checks can verify source/provenance structure without Android SDK or NDK setup.
+- **Avoid build-system migration in this pass:** Moving from Ant/project.properties to Gradle/CMake should be planned with a verified NDK toolchain and runtime smoke test.
 
 ---
 
 ## Scope Boundaries
 
-- This pass does not remove `obj/` or `libs/` artifacts.
-- This pass does not regenerate `.so` libraries.
-- This pass does not migrate to Gradle, CMake, or a modern Android project layout.
-- This pass does not change C, Java, manifest, or resource behavior.
+- This pass does not regenerate or replace any `.so` runtime library.
+- This pass does not add a Gradle project, CMake build, CI, emulator test, or device smoke test.
+- This pass does not edit native rendering code or Java activity behavior.
+- This pass does not change Android manifest package names, SDK values, or app labels.
 
 ---
 
 ## Implementation Units
 
-### U1. Document Native Artifact Provenance
+### U1. Document NDK Baseline
 
-- **Goal:** Make the repository's legacy NDK state explicit for future maintainers.
+- **Goal:** Make the preserved sample understandable and explicit about build limits.
 - **Files:** `README.md`
-- **Patterns:** Short sections for purpose, artifact policy, toolchain prerequisites, and verification.
+- **Patterns:** Short sections for project shape, binary provenance, verification, and deferred modernization.
 - **Test Scenarios:**
-  - README names checked-in `libs/*.so` and `obj/` outputs as legacy artifacts.
-  - README states that binary replacements require source, command, NDK version, and ABI documentation.
-  - README documents that `ndk-build` and `ant` are unavailable in this environment.
+  - README names the Ant/project.properties project shape.
+  - README explains `libs/` runtime binaries versus ignored `obj/` intermediates.
+  - README states that `ndk-build` is required before regenerating binaries.
 - **Verification:** `scripts/check-baseline.sh`
 
-### U2. Add SDK-Free Provenance Check
+### U2. Remove Tracked Native Intermediates
 
-- **Goal:** Guard source, license, ABI, and target metadata without native tooling.
-- **Files:** `scripts/check-baseline.sh`
-- **Patterns:** POSIX shell with repo-root detection and clear missing-file failures.
+- **Goal:** Stop versioning generated debug/native intermediate artifacts.
+- **Files:** `.gitignore`, `obj/local/*/libsanangeles.so`
+- **Patterns:** Add `obj/` to `.gitignore`; remove tracked `obj/local` libraries while keeping `libs/` libraries.
 - **Test Scenarios:**
-  - The script fails if required `jni/*.c` or `jni/Android.mk` files are missing.
-  - The script fails if license files are missing.
-  - The script fails if expected ABI `.so` files are missing.
-  - The script fails if `project.properties` no longer targets `Google APIs:21`.
+  - `git ls-files 'obj/*'` returns no tracked files.
+  - `.gitignore` includes `obj/`.
+  - `libs/*/libsanangeles.so` still exists for each checked-in ABI.
+- **Verification:** `scripts/check-baseline.sh`
+
+### U3. Add SDK-Free Provenance Check
+
+- **Goal:** Provide a repeatable baseline gate before Android SDK/NDK setup.
+- **Files:** `scripts/check-baseline.sh`
+- **Patterns:** POSIX shell with repo-root detection and clear failure messages.
+- **Test Scenarios:**
+  - The script fails if required JNI source or license files are missing.
+  - The script fails if expected runtime ABI libraries are missing.
+  - The script fails if `obj/` is not ignored or tracked `obj/` files return.
+  - The script fails if README no longer documents the NDK/provenance baseline.
 - **Verification:** `scripts/check-baseline.sh`
 
 ---
 
 ## Risks & Dependencies
 
-- The checked-in binaries have no fresh build provenance yet; future work should install a known NDK and regenerate or validate them.
-- `project.properties` targets the old Ant project format and Google APIs 21; modern Android builds need a separate migration plan.
-- Runtime verification still requires an Android device or emulator capable of running the OpenGL ES demo.
+- Runtime behavior is not exercised because no Android NDK, emulator, or device smoke test is configured here.
+- Checked-in runtime `.so` files still need future provenance work: documented NDK version, reproducible rebuild command, checksums, and runtime launch verification.
+- Ant/project.properties support is obsolete; a future migration should preserve a known-good native rebuild before moving to Gradle/CMake.
 
 ---
 
 ## Sources / Research
 
-- `jni/Android.mk`, `jni/Application.mk`, and `jni/*.c` define the native build.
-- `libs/*/libsanangeles.so` contains prebuilt ABI libraries.
-- `obj/` contains checked-in native build outputs.
-- `project.properties` targets `Google Inc.:Google APIs:21`.
-- `command -v ndk-build` and `command -v ant` both fail in this environment.
+- `jni/Android.mk` builds the `sanangeles` shared library from `importgl.c`, `demo.c`, and `app-android.c`.
+- `jni/Application.mk` currently declares `APP_ABI := all`.
+- `jni/license.txt`, `jni/license-BSD.txt`, and `jni/license-LGPL.txt` preserve upstream licensing context.
+- `libs/*/libsanangeles.so` contains deployable runtime binaries for multiple ABIs.
+- `obj/local/*/libsanangeles.so` contains generated intermediate native build outputs with debug information.
+- `project.properties` identifies the legacy Ant project target.
+- `ndk-build` is not available on this host, so binary regeneration is deferred.

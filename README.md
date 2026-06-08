@@ -1,39 +1,47 @@
 # Android NDK Sample
 
-Legacy Android NDK port of the San Angeles OpenGL ES demo. The repository keeps
-the original native C sources, Android makefiles, license files, and prebuilt
-ABI libraries together for preservation.
+Legacy Android NDK sample for the San Angeles Observation OpenGL ES demo.
 
-## Artifact Policy
+## Project Shape
 
-The checked-in `libs/*/libsanangeles.so` files and `obj/` tree are legacy native
-build artifacts. Do not replace or remove them unless the change also documents:
+This repository preserves an older Ant/NDK Android project:
 
-- NDK version.
-- Build command.
-- Source revision.
-- Target ABI list.
-- Verification result on a device or emulator.
+- `project.properties` declares the legacy Android target.
+- `AndroidManifest.xml` and `src/` contain the Android activity wrapper.
+- `jni/` contains the native C source, NDK makefiles, and upstream license files.
+- `libs/*/libsanangeles.so` contains checked-in runtime native libraries for the current sample.
 
-## Toolchain
-
-The project uses the old Ant/NDK Android project layout:
-
-- `project.properties` targets `Google Inc.:Google APIs:21`.
-- Native build metadata lives in `jni/Android.mk` and `jni/Application.mk`.
-- Java entrypoint is `src/com/example/SanAngeles/DemoActivity.java`.
-
-This environment does not currently provide `ndk-build` or `ant`, so full native
-or APK rebuild verification is unavailable here.
+The generated `obj/` directory is ignored and should not be committed. Runtime
+libraries in `libs/` are kept until they can be regenerated with a documented
+NDK version and smoke-tested on an emulator or device.
 
 ## Verify
 
-Run the SDK-free provenance check:
+Run the SDK-free baseline check:
 
 ```sh
 scripts/check-baseline.sh
 ```
 
-Future build verification should install a documented Android NDK and Ant, then
-record the exact commands used to regenerate native libraries and package the
-APK.
+This check validates the repository structure, required native source/license
+files, expected ABI runtime libraries, and `obj/` ignore policy. It does not
+require an Android SDK or NDK.
+
+## Native Rebuilds
+
+Do not replace checked-in `.so` files without documenting:
+
+- Android NDK version.
+- Exact rebuild command.
+- Target ABI list.
+- Resulting library checksums.
+- Runtime launch or smoke-test evidence.
+
+`ndk-build` is not currently available in this environment, so binary
+regeneration is deferred.
+
+## Modernization Notes
+
+A future pass should establish a reproducible NDK rebuild first, then migrate
+from Ant/project.properties to a supported Gradle/CMake Android project with
+CI, checksums, and emulator or device verification.
