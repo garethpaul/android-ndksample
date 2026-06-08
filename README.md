@@ -75,9 +75,3 @@ When the required SDK or runtime is unavailable, use static checks and source re
 ## Contributing
 
 Keep changes small and tied to the project that is already present in this repository. For code changes, document the toolchain used, avoid committing generated dependency directories or local configuration, and update this README when setup or verification steps change.
-
-## Existing Project Notes
-
-Prior README summary:
-
-> Android NDK Sample Legacy Android NDK sample for the San Angeles Observation OpenGL ES demo. Project Shape This repository preserves an older Ant/NDK Android project: - `project.properties` declares the legacy Android target. - `AndroidManifest.xml` and `src/` contain the Android activity wrapper. - `jni/` contains the native C source, NDK makefiles, and upstream license files.
