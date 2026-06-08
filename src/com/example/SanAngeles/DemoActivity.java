@@ -87,17 +87,24 @@ class DemoGLSurfaceView extends GLSurfaceView {
     public boolean onTouchEvent(final MotionEvent event) {
         if (event.getAction() == MotionEvent.ACTION_DOWN) {
             nativeTogglePauseResume();
+            performClick();
         }
         return true;
     }
 
-   @Override
+    @Override
+    public boolean performClick() {
+        super.performClick();
+        return true;
+    }
+
+    @Override
     public void onPause() {
         super.onPause();
         nativePause();
     }
 
-   @Override
+    @Override
     public void onResume() {
         super.onResume();
         nativeResume();
