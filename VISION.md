@@ -40,7 +40,7 @@ Native binaries and generated libraries should be treated as build artifacts
 that need clear provenance. Do not replace checked-in `.so` files without
 documenting source, build command, and target ABI.
 
-## What We Will Not Merge For Now
+## What We Will Not Merge (For Now)
 
 - Binary library replacements without source/build provenance
 - License or attribution removals
