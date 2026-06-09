@@ -42,10 +42,30 @@ for path in \
   require_file "$path" "Required baseline file is missing: $path"
 done
 
+expected_abi_count=0
 for abi in arm64-v8a armeabi-v7a armeabi mips mips64 x86 x86_64; do
+  expected_abi_count=$((expected_abi_count + 1))
   require_file "libs/$abi/libsanangeles.so" "Runtime native library is missing for ABI: $abi"
   require_contains "libs/SHA256SUMS" "libs/$abi/libsanangeles.so" "Checksum manifest must include ABI library: $abi"
 done
+
+checked_in_library_count=$(find "$ROOT_DIR/libs" -mindepth 2 -maxdepth 2 -name 'libsanangeles.so' | wc -l | tr -d ' ')
+if [ "$checked_in_library_count" -ne "$expected_abi_count" ]; then
+  printf '%s\n' "Checked-in libsanangeles.so ABI count must match the documented baseline." >&2
+  exit 1
+fi
+
+unmanifested_libraries=$(find "$ROOT_DIR/libs" -type f -name '*.so' | sort | while IFS= read -r library; do
+  relative_path=${library#"$ROOT_DIR/"}
+  if ! grep -Fq "$relative_path" "$ROOT_DIR/libs/SHA256SUMS"; then
+    printf '%s\n' "$relative_path"
+  fi
+done)
+if [ -n "$unmanifested_libraries" ]; then
+  printf '%s\n' "Checked-in native libraries must be listed in libs/SHA256SUMS:" >&2
+  printf '%s\n' "$unmanifested_libraries" >&2
+  exit 1
+fi
 
 if command -v sha256sum >/dev/null 2>&1; then
   if ! (cd "$ROOT_DIR" && sha256sum -c libs/SHA256SUMS >/dev/null); then

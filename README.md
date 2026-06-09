@@ -38,8 +38,9 @@ scripts/check-baseline.sh
 ```
 
 This check validates the repository structure, required native source/license
-files, expected ABI runtime libraries, checksum manifest, and `obj/` ignore
-policy. It does not require an Android SDK or NDK.
+files, expected ABI runtime libraries, complete checksum manifest coverage for
+checked-in native libraries, and `obj/` ignore policy. It does not require an
+Android SDK or NDK.
 
 If the legacy Android SDK tools are available, run the Ant-project lint gate:
 
@@ -61,6 +62,7 @@ Do not replace checked-in `.so` files without documenting:
 - Target ABI list.
 - Resulting library checksums.
 - Runtime launch or smoke-test evidence.
+- Confirmation that every checked-in `.so` file is listed in `libs/SHA256SUMS`.
 
 `ndk-build` is not currently available in this environment, so binary
 regeneration is deferred.

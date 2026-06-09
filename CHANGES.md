@@ -14,3 +14,5 @@
 - Added a `make check` wrapper for the SDK-free NDK provenance baseline.
 - Added `libs/SHA256SUMS` to record checksums for checked-in runtime native
   libraries.
+- Extended the SDK-free check to reject checked-in native libraries that are not
+  covered by `libs/SHA256SUMS`.

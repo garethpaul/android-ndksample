@@ -21,6 +21,7 @@ Priority:
 - Preserve the native source, ABI libraries, and Android manifest structure
 - Keep original license and attribution files intact
 - Make the demo's OpenGL ES 1.x assumptions clear
+- Keep checked-in native libraries covered by checksum provenance
 - Avoid build changes that break older NDK sample behavior silently
 
 Next priorities:
