@@ -2,6 +2,8 @@
 
 ## 2026-06-09
 
+- Made native pause/resume helpers idempotent so repeated Android lifecycle
+  callbacks do not corrupt the demo time offset.
 - Aligned JNI source signatures with the Java static native declarations and
   added an SDK-free contract for future native rebuilds.
 - Added root `make lint`, `make test`, and guarded `make build` targets for the

@@ -74,6 +74,10 @@ Java_com_example_SanAngeles_DemoRenderer_nativeDone( JNIEnv*  env, jclass  clazz
 
 void _pause()
 {
+    if (sDemoStopped) {
+        return;
+    }
+
   /* we paused the animation, so store the current
    * time in sTimeStopped for future nativeRender calls */
     sDemoStopped = 1;
@@ -82,6 +86,10 @@ void _pause()
 
 void _resume()
 {
+    if (!sDemoStopped) {
+        return;
+    }
+
   /* we resumed the animation, so adjust the time offset
    * to take care of the pause interval. */
     sDemoStopped = 0;
@@ -92,11 +100,10 @@ void _resume()
 void
 Java_com_example_SanAngeles_DemoGLSurfaceView_nativeTogglePauseResume( JNIEnv*  env, jclass  clazz )
 {
-    sDemoStopped = !sDemoStopped;
     if (sDemoStopped)
-        _pause();
-    else
         _resume();
+    else
+        _pause();
 }
 
 void

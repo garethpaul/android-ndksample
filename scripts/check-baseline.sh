@@ -145,6 +145,10 @@ require_contains "jni/app-android.c" "Java_com_example_SanAngeles_DemoRenderer_n
 require_contains "jni/app-android.c" "Java_com_example_SanAngeles_DemoGLSurfaceView_nativeTogglePauseResume( JNIEnv*  env, jclass  clazz )" "static nativeTogglePauseResume JNI signature must include jclass."
 require_contains "jni/app-android.c" "Java_com_example_SanAngeles_DemoGLSurfaceView_nativePause( JNIEnv*  env, jclass  clazz )" "static nativePause JNI signature must include jclass."
 require_contains "jni/app-android.c" "Java_com_example_SanAngeles_DemoGLSurfaceView_nativeResume( JNIEnv*  env, jclass  clazz )" "static nativeResume JNI signature must include jclass."
+require_contains "jni/app-android.c" "if (sDemoStopped) {" "Native pause must be idempotent when the demo is already stopped."
+require_contains "jni/app-android.c" "if (!sDemoStopped) {" "Native resume must be idempotent when the demo is already running."
+require_contains "jni/app-android.c" "_resume();" "Native toggle must route through resume helper."
+require_contains "jni/app-android.c" "_pause();" "Native toggle must route through pause helper."
 require_contains "lint.xml" "LintError" "lint.xml must document the no-classfiles lint limitation."
 require_contains "lint.xml" "UsesMinSdkAttributes" "lint.xml must document the deferred target SDK policy."
 
@@ -169,6 +173,21 @@ require_contains "$CHECKSUM_PATH_PLAN" "status: completed" "Checksum path hygien
 
 if grep -Fq "nativeInit( JNIEnv*  env )" "$ROOT_DIR/jni/app-android.c"; then
   printf '%s\n' "static nativeInit JNI signature must not omit jclass." >&2
+  exit 1
+fi
+
+if grep -Fq "sDemoStopped = !sDemoStopped;" "$ROOT_DIR/jni/app-android.c"; then
+  printf '%s\n' "Native toggle must not flip state before pause/resume helpers run." >&2
+  exit 1
+fi
+
+if ! grep -Fq "Native pause/resume helpers are idempotent" "$ROOT_DIR/README.md"; then
+  printf '%s\n' "README must document native pause/resume idempotence." >&2
+  exit 1
+fi
+
+if ! grep -Fq "make check" "$ROOT_DIR/docs/plans/2026-06-09-ndk-native-pause-resume-idempotence.md"; then
+  printf '%s\n' "NDK native pause/resume idempotence plan must document make check verification." >&2
   exit 1
 fi
 
