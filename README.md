@@ -21,7 +21,8 @@ The generated `obj/` directory is ignored and should not be committed. Runtime
 libraries in `libs/` are kept until they can be regenerated with a documented
 NDK version and smoke-tested on an emulator or device.
 `libs/SHA256SUMS` records the current checksum for each checked-in runtime
-library.
+library. Entries must use lowercase SHA-256 digests and repo-relative paths for
+the expected `libs/<abi>/libsanangeles.so` runtime libraries.
 
 ## Verify
 
@@ -39,8 +40,8 @@ scripts/check-baseline.sh
 
 This check validates the repository structure, required native source/license
 files, expected ABI runtime libraries, complete checksum manifest coverage for
-checked-in native libraries, and `obj/` ignore policy. It does not require an
-Android SDK or NDK.
+checked-in native libraries, checksum manifest path hygiene, and `obj/` ignore
+policy. It does not require an Android SDK or NDK.
 
 If the legacy Android SDK tools are available, run the Ant-project lint gate:
 

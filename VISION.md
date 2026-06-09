@@ -22,6 +22,7 @@ Priority:
 - Keep original license and attribution files intact
 - Make the demo's OpenGL ES 1.x assumptions clear
 - Keep checked-in native libraries covered by checksum provenance
+- Keep checksum manifests constrained to repo-relative expected ABI paths
 - Avoid build changes that break older NDK sample behavior silently
 
 Next priorities:

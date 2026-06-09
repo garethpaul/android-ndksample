@@ -1,5 +1,10 @@
 # Changes
 
+## 2026-06-09
+
+- Tightened `libs/SHA256SUMS` validation so checksum entries must use lowercase
+  SHA-256 digests and repo-relative paths for the expected ABI libraries.
+
 ## 2026-06-08
 
 - Added `libs/SHA256SUMS` and a baseline checksum validation gate for the

@@ -2,6 +2,7 @@
 set -eu
 
 ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+CHECKSUM_PATH_PLAN="docs/plans/2026-06-09-ndk-checksum-path-hygiene.md"
 
 require_file() {
   path=$1
@@ -27,6 +28,7 @@ require_contains() {
 for path in \
   "README.md" \
   "docs/plans/2026-06-08-ndk-provenance-baseline.md" \
+  "$CHECKSUM_PATH_PLAN" \
   "AndroidManifest.xml" \
   "project.properties" \
   "jni/Android.mk" \
@@ -48,6 +50,50 @@ for abi in arm64-v8a armeabi-v7a armeabi mips mips64 x86 x86_64; do
   require_file "libs/$abi/libsanangeles.so" "Runtime native library is missing for ABI: $abi"
   require_contains "libs/SHA256SUMS" "libs/$abi/libsanangeles.so" "Checksum manifest must include ABI library: $abi"
 done
+
+while read -r checksum path extra; do
+  if [ -z "$checksum" ]; then
+    continue
+  fi
+
+  if [ "${#checksum}" -ne 64 ]; then
+    printf '%s\n' "Checksum manifest entries must use lowercase SHA-256 digests." >&2
+    exit 1
+  fi
+  case "$checksum" in
+    *[!0123456789abcdef]*)
+      printf '%s\n' "Checksum manifest entries must use lowercase SHA-256 digests." >&2
+      exit 1
+      ;;
+  esac
+
+  if [ -n "${extra:-}" ]; then
+    printf '%s\n' "Checksum manifest entries must contain exactly a digest and a path." >&2
+    exit 1
+  fi
+
+  case "$path" in
+    /*|../*|*/../*|*\\*)
+      printf '%s\n' "Checksum manifest paths must stay repo-relative: $path" >&2
+      exit 1
+      ;;
+  esac
+
+  case "$path" in
+    libs/arm64-v8a/libsanangeles.so|\
+libs/armeabi-v7a/libsanangeles.so|\
+libs/armeabi/libsanangeles.so|\
+libs/mips/libsanangeles.so|\
+libs/mips64/libsanangeles.so|\
+libs/x86/libsanangeles.so|\
+libs/x86_64/libsanangeles.so)
+      ;;
+    *)
+      printf '%s\n' "Checksum manifest path is outside the expected ABI set: $path" >&2
+      exit 1
+      ;;
+  esac
+done < "$ROOT_DIR/libs/SHA256SUMS"
 
 checked_in_library_count=$(find "$ROOT_DIR/libs" -mindepth 2 -maxdepth 2 -name 'libsanangeles.so' | wc -l | tr -d ' ')
 if [ "$checked_in_library_count" -ne "$expected_abi_count" ]; then
@@ -100,6 +146,7 @@ fi
 
 require_contains "Makefile" "scripts/check-baseline.sh" "Makefile must run the SDK-free baseline check."
 require_contains "README.md" "make check" "README must document the make check wrapper."
+require_contains "$CHECKSUM_PATH_PLAN" "status: completed" "Checksum path hygiene plan must be completed."
 
 if [ -f "$ROOT_DIR/res/layout/main.xml" ]; then
   printf '%s\n' "Unused starter layout must not be restored." >&2
