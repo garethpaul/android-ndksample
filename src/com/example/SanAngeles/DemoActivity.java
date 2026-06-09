@@ -61,13 +61,17 @@ public class DemoActivity extends Activity {
     @Override
     protected void onPause() {
         super.onPause();
-        mGLView.onPause();
+        if (mGLView != null) {
+            mGLView.onPause();
+        }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        mGLView.onResume();
+        if (mGLView != null) {
+            mGLView.onResume();
+        }
     }
 
     @Override

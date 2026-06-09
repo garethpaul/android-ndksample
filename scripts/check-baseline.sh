@@ -4,6 +4,7 @@ set -eu
 ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 CHECKSUM_PATH_PLAN="docs/plans/2026-06-09-ndk-checksum-path-hygiene.md"
 TEARDOWN_PLAN="docs/plans/2026-06-09-ndk-render-after-teardown.md"
+JAVA_LIFECYCLE_PLAN="docs/plans/2026-06-09-ndk-java-lifecycle-view-guard.md"
 
 require_file() {
   path=$1
@@ -31,6 +32,7 @@ for path in \
   "docs/plans/2026-06-08-ndk-provenance-baseline.md" \
   "$CHECKSUM_PATH_PLAN" \
   "$TEARDOWN_PLAN" \
+  "$JAVA_LIFECYCLE_PLAN" \
   "AndroidManifest.xml" \
   "project.properties" \
   "jni/Android.mk" \
@@ -133,6 +135,14 @@ require_contains "jni/Android.mk" "LOCAL_MODULE := sanangeles" "NDK module name 
 require_contains "jni/Application.mk" "APP_ABI := all" "Application.mk must preserve current ABI baseline."
 require_contains "AndroidManifest.xml" 'android:allowBackup="false"' "Manifest must make backup behavior explicit."
 require_contains "src/com/example/SanAngeles/DemoActivity.java" "public boolean performClick()" "GLSurfaceView touch handling must expose performClick."
+if ! grep -A6 "protected void onPause()" "$ROOT_DIR/src/com/example/SanAngeles/DemoActivity.java" | grep -Fq "if (mGLView != null)"; then
+  printf '%s\n' "Activity pause path must guard missing GLSurfaceView instances." >&2
+  exit 1
+fi
+if ! grep -A6 "protected void onResume()" "$ROOT_DIR/src/com/example/SanAngeles/DemoActivity.java" | grep -Fq "if (mGLView != null)"; then
+  printf '%s\n' "Activity resume path must guard missing GLSurfaceView instances." >&2
+  exit 1
+fi
 require_contains "src/com/example/SanAngeles/DemoActivity.java" "protected void onDestroy()" "Activity must release native resources during destruction."
 require_contains "src/com/example/SanAngeles/DemoActivity.java" "mGLView.releaseNativeResources();" "Activity destroy path must release GLSurfaceView native resources."
 require_contains "src/com/example/SanAngeles/DemoActivity.java" "public void releaseNativeResources()" "GLSurfaceView must expose native resource cleanup."
@@ -209,6 +219,11 @@ fi
 
 if ! grep -Fq "make check" "$ROOT_DIR/docs/plans/2026-06-09-ndk-native-pause-resume-idempotence.md"; then
   printf '%s\n' "NDK native pause/resume idempotence plan must document make check verification." >&2
+  exit 1
+fi
+
+if ! grep -Fq "make check" "$ROOT_DIR/$JAVA_LIFECYCLE_PLAN"; then
+  printf '%s\n' "NDK Java lifecycle view guard plan must document make check verification." >&2
   exit 1
 fi
 

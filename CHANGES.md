@@ -2,6 +2,7 @@
 
 ## 2026-06-09
 
+- Guarded Java pause/resume lifecycle callbacks when the GL view is unavailable.
 - Guarded native rendering and repeated init/done calls after teardown so late
   renderer callbacks do not use freed demo objects.
 - Made native pause/resume helpers idempotent so repeated Android lifecycle

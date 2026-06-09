@@ -24,6 +24,7 @@ Priority:
 - Keep checked-in native libraries covered by checksum provenance
 - Keep checksum manifests constrained to repo-relative expected ABI paths
 - Keep Java lifecycle teardown wired to the native cleanup path
+- Keep Java pause/resume lifecycle callbacks safe when the GL view is missing
 - Keep native pause/resume lifecycle helpers idempotent across repeated calls
 - Keep native rendering guarded after teardown and repeated initialization
 - Keep JNI source signatures aligned with Java static native declarations
