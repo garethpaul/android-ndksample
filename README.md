@@ -56,6 +56,8 @@ checked-in native libraries, checksum manifest path hygiene, and `obj/` ignore
 policy. It does not require an Android SDK or NDK.
 The baseline also verifies that activity destruction calls the existing
 `nativeDone()` JNI cleanup path for demo object and imported GL teardown.
+JNI bindings use static native signatures that include the `jclass` argument
+for the Java static native methods.
 
 If the legacy Android SDK tools are available, run the Ant-project lint gate:
 
@@ -79,6 +81,8 @@ Do not replace checked-in `.so` files without documenting:
 - Runtime launch or smoke-test evidence.
 - Confirmation that every checked-in `.so` file is listed in `libs/SHA256SUMS`.
 - Confirmation that Java lifecycle changes still invoke native cleanup.
+- Confirmation that rebuilt JNI bindings keep the static native signatures
+  aligned with the Java declarations.
 
 `ndk-build` is not currently available in this environment, so binary
 regeneration is deferred.

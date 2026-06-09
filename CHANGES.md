@@ -2,6 +2,8 @@
 
 ## 2026-06-09
 
+- Aligned JNI source signatures with the Java static native declarations and
+  added an SDK-free contract for future native rebuilds.
 - Added root `make lint`, `make test`, and guarded `make build` targets for the
   legacy Ant/NDK sample verification flow.
 - Tightened `libs/SHA256SUMS` validation so checksum entries must use lowercase

@@ -138,6 +138,13 @@ require_contains "src/com/example/SanAngeles/DemoActivity.java" "nativeDone();" 
 require_contains "jni/app-android.c" "Java_com_example_SanAngeles_DemoRenderer_nativeDone" "JNI nativeDone binding must stay present."
 require_contains "jni/app-android.c" "appDeinit();" "nativeDone must deinitialize demo objects."
 require_contains "jni/app-android.c" "importGLDeinit();" "nativeDone must release imported GL bindings."
+require_contains "jni/app-android.c" "Java_com_example_SanAngeles_DemoRenderer_nativeInit( JNIEnv*  env, jclass  clazz )" "static nativeInit JNI signature must include jclass."
+require_contains "jni/app-android.c" "Java_com_example_SanAngeles_DemoRenderer_nativeResize( JNIEnv*  env, jclass  clazz, jint w, jint h )" "static nativeResize JNI signature must include jclass."
+require_contains "jni/app-android.c" "Java_com_example_SanAngeles_DemoRenderer_nativeDone( JNIEnv*  env, jclass  clazz )" "static nativeDone JNI signature must include jclass."
+require_contains "jni/app-android.c" "Java_com_example_SanAngeles_DemoRenderer_nativeRender( JNIEnv*  env, jclass  clazz )" "static nativeRender JNI signature must include jclass."
+require_contains "jni/app-android.c" "Java_com_example_SanAngeles_DemoGLSurfaceView_nativeTogglePauseResume( JNIEnv*  env, jclass  clazz )" "static nativeTogglePauseResume JNI signature must include jclass."
+require_contains "jni/app-android.c" "Java_com_example_SanAngeles_DemoGLSurfaceView_nativePause( JNIEnv*  env, jclass  clazz )" "static nativePause JNI signature must include jclass."
+require_contains "jni/app-android.c" "Java_com_example_SanAngeles_DemoGLSurfaceView_nativeResume( JNIEnv*  env, jclass  clazz )" "static nativeResume JNI signature must include jclass."
 require_contains "lint.xml" "LintError" "lint.xml must document the no-classfiles lint limitation."
 require_contains "lint.xml" "UsesMinSdkAttributes" "lint.xml must document the deferred target SDK policy."
 
@@ -157,7 +164,13 @@ require_contains "Makefile" "test:" "Makefile must expose a test gate."
 require_contains "Makefile" "build:" "Makefile must expose a guarded build gate."
 require_contains "Makefile" "verify: lint test build" "Makefile verify must run lint, test, and build gates."
 require_contains "README.md" "make check" "README must document the make check wrapper."
+require_contains "README.md" "JNI bindings use static native signatures" "README must document JNI static native signatures."
 require_contains "$CHECKSUM_PATH_PLAN" "status: completed" "Checksum path hygiene plan must be completed."
+
+if grep -Fq "nativeInit( JNIEnv*  env )" "$ROOT_DIR/jni/app-android.c"; then
+  printf '%s\n' "static nativeInit JNI signature must not omit jclass." >&2
+  exit 1
+fi
 
 if [ -f "$ROOT_DIR/res/layout/main.xml" ]; then
   printf '%s\n' "Unused starter layout must not be restored." >&2
