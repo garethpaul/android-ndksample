@@ -97,6 +97,22 @@ static GLOBJECT *sSuperShapeObjects[SUPERSHAPE_COUNT] = { NULL };
 static GLOBJECT *sGroundPlane = NULL;
 
 
+static int appResourcesReady()
+{
+    int a;
+
+    if (sGroundPlane == NULL)
+        return 0;
+
+    for (a = 0; a < SUPERSHAPE_COUNT; ++a)
+    {
+        if (sSuperShapeObjects[a] == NULL)
+            return 0;
+    }
+    return 1;
+}
+
+
 typedef struct {
     float x, y, z;
 } VECTOR3;
@@ -493,9 +509,14 @@ void appInit()
 void appDeinit()
 {
     int a;
+
     for (a = 0; a < SUPERSHAPE_COUNT; ++a)
+    {
         freeGLObject(sSuperShapeObjects[a]);
+        sSuperShapeObjects[a] = NULL;
+    }
     freeGLObject(sGroundPlane);
+    sGroundPlane = NULL;
 }
 
 
@@ -752,10 +773,10 @@ static void camTrack()
  */
 void appRender(long tick, int width, int height)
 {
+    if (!gAppAlive || !appResourcesReady())
+        return;
     if (sStartTick == 0)
         sStartTick = tick;
-    if (!gAppAlive)
-        return;
 
     // Actual tick value is "blurred" a little bit.
     sTick = (sTick + tick - sStartTick) >> 1;

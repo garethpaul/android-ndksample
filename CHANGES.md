@@ -2,6 +2,8 @@
 
 ## 2026-06-09
 
+- Guarded native rendering and repeated init/done calls after teardown so late
+  renderer callbacks do not use freed demo objects.
 - Made native pause/resume helpers idempotent so repeated Android lifecycle
   callbacks do not corrupt the demo time offset.
 - Aligned JNI source signatures with the Java static native declarations and

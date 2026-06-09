@@ -60,6 +60,8 @@ JNI bindings use static native signatures that include the `jclass` argument
 for the Java static native methods.
 Native pause/resume helpers are idempotent so repeated lifecycle callbacks do
 not corrupt the demo time offset.
+Native render calls are ignored after teardown, repeated cleanup is a no-op,
+and repeated native initialization releases the previous resource set first.
 
 If the legacy Android SDK tools are available, run the Ant-project lint gate:
 
@@ -87,6 +89,8 @@ Do not replace checked-in `.so` files without documenting:
   aligned with the Java declarations.
 - Confirmation that native pause/resume helpers remain idempotent across
   repeated lifecycle callbacks.
+- Confirmation that renderer callbacks after native teardown do not use freed
+  demo objects.
 
 `ndk-build` is not currently available in this environment, so binary
 regeneration is deferred.

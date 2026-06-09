@@ -3,6 +3,7 @@ set -eu
 
 ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 CHECKSUM_PATH_PLAN="docs/plans/2026-06-09-ndk-checksum-path-hygiene.md"
+TEARDOWN_PLAN="docs/plans/2026-06-09-ndk-render-after-teardown.md"
 
 require_file() {
   path=$1
@@ -29,6 +30,7 @@ for path in \
   "README.md" \
   "docs/plans/2026-06-08-ndk-provenance-baseline.md" \
   "$CHECKSUM_PATH_PLAN" \
+  "$TEARDOWN_PLAN" \
   "AndroidManifest.xml" \
   "project.properties" \
   "jni/Android.mk" \
@@ -149,6 +151,15 @@ require_contains "jni/app-android.c" "if (sDemoStopped) {" "Native pause must be
 require_contains "jni/app-android.c" "if (!sDemoStopped) {" "Native resume must be idempotent when the demo is already running."
 require_contains "jni/app-android.c" "_resume();" "Native toggle must route through resume helper."
 require_contains "jni/app-android.c" "_pause();" "Native toggle must route through pause helper."
+require_contains "jni/app-android.c" "static int  sNativeInitialized = 0;" "Android JNI layer must track initialized native resources."
+require_contains "jni/app-android.c" "if (sNativeInitialized) {" "nativeInit must release an existing native resource set before reinitializing."
+require_contains "jni/app-android.c" "sNativeInitialized = 1;" "nativeInit must mark native resources initialized after setup."
+require_contains "jni/app-android.c" "if (!sNativeInitialized) {" "nativeDone and nativeRender must guard uninitialized native resources."
+require_contains "jni/app-android.c" "sNativeInitialized = 0;" "nativeDone must clear initialized state after cleanup."
+require_contains "jni/demo.c" "sSuperShapeObjects[a] = NULL;" "Native demo cleanup must null freed supershape pointers."
+require_contains "jni/demo.c" "sGroundPlane = NULL;" "Native demo cleanup must null the freed ground-plane pointer."
+require_contains "jni/demo.c" "static int appResourcesReady()" "Native render path must expose a resource-readiness guard."
+require_contains "jni/demo.c" "!appResourcesReady()" "Native render path must skip drawing after resource teardown."
 require_contains "lint.xml" "LintError" "lint.xml must document the no-classfiles lint limitation."
 require_contains "lint.xml" "UsesMinSdkAttributes" "lint.xml must document the deferred target SDK policy."
 
@@ -183,6 +194,16 @@ fi
 
 if ! grep -Fq "Native pause/resume helpers are idempotent" "$ROOT_DIR/README.md"; then
   printf '%s\n' "README must document native pause/resume idempotence." >&2
+  exit 1
+fi
+
+if ! grep -Fq "Native render calls are ignored after teardown" "$ROOT_DIR/README.md"; then
+  printf '%s\n' "README must document native render-after-teardown behavior." >&2
+  exit 1
+fi
+
+if ! grep -Fq "make check" "$ROOT_DIR/$TEARDOWN_PLAN"; then
+  printf '%s\n' "NDK render-after-teardown plan must document make check verification." >&2
   exit 1
 fi
 

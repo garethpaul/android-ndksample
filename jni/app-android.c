@@ -29,6 +29,7 @@ int   gAppAlive   = 1;
 
 static int  sWindowWidth  = 320;
 static int  sWindowHeight = 480;
+static int  sNativeInitialized = 0;
 static int  sDemoStopped  = 0;
 static long sTimeOffset   = 0;
 static int  sTimeOffsetInit = 0;
@@ -47,9 +48,16 @@ _getTime(void)
 void
 Java_com_example_SanAngeles_DemoRenderer_nativeInit( JNIEnv*  env, jclass  clazz )
 {
+    if (sNativeInitialized) {
+        appDeinit();
+        importGLDeinit();
+        sNativeInitialized = 0;
+    }
+
     importGLInit();
     appInit();
     gAppAlive  = 1;
+    sNativeInitialized = 1;
 }
 
 void
@@ -64,8 +72,14 @@ Java_com_example_SanAngeles_DemoRenderer_nativeResize( JNIEnv*  env, jclass  cla
 void
 Java_com_example_SanAngeles_DemoRenderer_nativeDone( JNIEnv*  env, jclass  clazz )
 {
+    if (!sNativeInitialized) {
+        return;
+    }
+
+    gAppAlive = 0;
     appDeinit();
     importGLDeinit();
+    sNativeInitialized = 0;
 }
 
 /* This is called to indicate to the render loop that it should
@@ -123,6 +137,10 @@ void
 Java_com_example_SanAngeles_DemoRenderer_nativeRender( JNIEnv*  env, jclass  clazz )
 {
     long   curTime;
+
+    if (!sNativeInitialized) {
+        return;
+    }
 
     /* NOTE: if sDemoStopped is TRUE, then we re-render the same frame
      *       on each iteration.
