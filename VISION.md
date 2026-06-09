@@ -24,6 +24,7 @@ Priority:
 - Keep checked-in native libraries covered by checksum provenance
 - Keep checksum manifests constrained to repo-relative expected ABI paths
 - Keep Java lifecycle teardown wired to the native cleanup path
+- Keep root lint, test, and guarded native build gates available
 - Avoid build changes that break older NDK sample behavior silently
 
 Next priorities:

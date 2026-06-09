@@ -152,6 +152,10 @@ if [ ! -f "$ROOT_DIR/Makefile" ]; then
 fi
 
 require_contains "Makefile" "scripts/check-baseline.sh" "Makefile must run the SDK-free baseline check."
+require_contains "Makefile" "lint:" "Makefile must expose a lint gate."
+require_contains "Makefile" "test:" "Makefile must expose a test gate."
+require_contains "Makefile" "build:" "Makefile must expose a guarded build gate."
+require_contains "Makefile" "verify: lint test build" "Makefile verify must run lint, test, and build gates."
 require_contains "README.md" "make check" "README must document the make check wrapper."
 require_contains "$CHECKSUM_PATH_PLAN" "status: completed" "Checksum path hygiene plan must be completed."
 

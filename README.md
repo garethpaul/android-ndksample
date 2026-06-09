@@ -32,6 +32,18 @@ Run the SDK-free baseline check through the root wrapper:
 make check
 ```
 
+The root Makefile also exposes the standard gate names:
+
+```sh
+make lint
+make test
+make build
+```
+
+`make lint` runs the SDK-free provenance check and Android lint when the legacy
+SDK lint tool is available. `make test` reruns the SDK-free provenance check.
+`make build` runs `ndk-build` when available and otherwise reports a clear skip.
+
 or run the underlying script directly:
 
 ```sh

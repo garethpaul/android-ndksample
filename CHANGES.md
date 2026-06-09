@@ -2,6 +2,8 @@
 
 ## 2026-06-09
 
+- Added root `make lint`, `make test`, and guarded `make build` targets for the
+  legacy Ant/NDK sample verification flow.
 - Tightened `libs/SHA256SUMS` validation so checksum entries must use lowercase
   SHA-256 digests and repo-relative paths for the expected ABI libraries.
 - Wired the Java activity destruction path to the existing JNI `nativeDone()`
