@@ -70,7 +70,15 @@ public class DemoActivity extends Activity {
         mGLView.onResume();
     }
 
-    private GLSurfaceView mGLView;
+    @Override
+    protected void onDestroy() {
+        if (mGLView != null) {
+            mGLView.releaseNativeResources();
+        }
+        super.onDestroy();
+    }
+
+    private DemoGLSurfaceView mGLView;
 
     static {
         System.loadLibrary("sanangeles");
@@ -110,6 +118,10 @@ class DemoGLSurfaceView extends GLSurfaceView {
         nativeResume();
     }
 
+    public void releaseNativeResources() {
+        mRenderer.releaseNativeResources();
+    }
+
 
     DemoRenderer mRenderer;
 
@@ -135,5 +147,10 @@ class DemoRenderer implements GLSurfaceView.Renderer {
     private static native void nativeInit();
     private static native void nativeResize(int w, int h);
     private static native void nativeRender();
+
+    void releaseNativeResources() {
+        nativeDone();
+    }
+
     private static native void nativeDone();
 }

@@ -23,6 +23,7 @@ Priority:
 - Make the demo's OpenGL ES 1.x assumptions clear
 - Keep checked-in native libraries covered by checksum provenance
 - Keep checksum manifests constrained to repo-relative expected ABI paths
+- Keep Java lifecycle teardown wired to the native cleanup path
 - Avoid build changes that break older NDK sample behavior silently
 
 Next priorities:

@@ -4,6 +4,8 @@
 
 - Tightened `libs/SHA256SUMS` validation so checksum entries must use lowercase
   SHA-256 digests and repo-relative paths for the expected ABI libraries.
+- Wired the Java activity destruction path to the existing JNI `nativeDone()`
+  deinitializer so native demo objects and imported GL bindings are released.
 
 ## 2026-06-08
 

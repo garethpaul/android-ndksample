@@ -131,6 +131,13 @@ require_contains "jni/Android.mk" "LOCAL_MODULE := sanangeles" "NDK module name 
 require_contains "jni/Application.mk" "APP_ABI := all" "Application.mk must preserve current ABI baseline."
 require_contains "AndroidManifest.xml" 'android:allowBackup="false"' "Manifest must make backup behavior explicit."
 require_contains "src/com/example/SanAngeles/DemoActivity.java" "public boolean performClick()" "GLSurfaceView touch handling must expose performClick."
+require_contains "src/com/example/SanAngeles/DemoActivity.java" "protected void onDestroy()" "Activity must release native resources during destruction."
+require_contains "src/com/example/SanAngeles/DemoActivity.java" "mGLView.releaseNativeResources();" "Activity destroy path must release GLSurfaceView native resources."
+require_contains "src/com/example/SanAngeles/DemoActivity.java" "public void releaseNativeResources()" "GLSurfaceView must expose native resource cleanup."
+require_contains "src/com/example/SanAngeles/DemoActivity.java" "nativeDone();" "Renderer cleanup must call the native deinitializer."
+require_contains "jni/app-android.c" "Java_com_example_SanAngeles_DemoRenderer_nativeDone" "JNI nativeDone binding must stay present."
+require_contains "jni/app-android.c" "appDeinit();" "nativeDone must deinitialize demo objects."
+require_contains "jni/app-android.c" "importGLDeinit();" "nativeDone must release imported GL bindings."
 require_contains "lint.xml" "LintError" "lint.xml must document the no-classfiles lint limitation."
 require_contains "lint.xml" "UsesMinSdkAttributes" "lint.xml must document the deferred target SDK policy."
 
