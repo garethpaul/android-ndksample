@@ -1,5 +1,13 @@
 # Changes
 
+## 2026-06-10
+
+- Added pinned, read-only GitHub Actions that runs `make check` for the NDK
+  provenance and lifecycle baseline with ambient SDK/NDK rebuilds disabled.
+- Extended the SDK-free baseline to require the CI workflow and completed CI
+  plan.
+- Removed the maintainer-specific Android SDK path from the Makefile.
+
 ## 2026-06-09
 
 - Guarded Java pause/resume lifecycle callbacks when the GL view is unavailable.

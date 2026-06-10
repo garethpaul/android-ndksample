@@ -30,6 +30,9 @@ Helpful reports include:
 - Review found file, document, data, or media parsing flows; changes in those areas should receive security-focused review before merge.
 - Review found database, model, query, or persistence-related code; changes in those areas should receive security-focused review before merge.
 - No primary dependency manifest was detected in the repository root. If dependencies are added later, include a manifest and prefer reproducible installation instructions.
+- Pinned, read-only GitHub Actions runs the SDK-free `make check` baseline
+  without ambient SDK or NDK discovery; review workflow or native-binary
+  provenance changes carefully before merge.
 
 ## Mobile Privacy Notes
 

@@ -5,6 +5,7 @@ ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 CHECKSUM_PATH_PLAN="docs/plans/2026-06-09-ndk-checksum-path-hygiene.md"
 TEARDOWN_PLAN="docs/plans/2026-06-09-ndk-render-after-teardown.md"
 JAVA_LIFECYCLE_PLAN="docs/plans/2026-06-09-ndk-java-lifecycle-view-guard.md"
+CI_PLAN="docs/plans/2026-06-10-ci-baseline.md"
 
 require_file() {
   path=$1
@@ -29,10 +30,12 @@ require_contains() {
 
 for path in \
   "README.md" \
+  ".github/workflows/check.yml" \
   "docs/plans/2026-06-08-ndk-provenance-baseline.md" \
   "$CHECKSUM_PATH_PLAN" \
   "$TEARDOWN_PLAN" \
   "$JAVA_LIFECYCLE_PLAN" \
+  "$CI_PLAN" \
   "AndroidManifest.xml" \
   "project.properties" \
   "jni/Android.mk" \
@@ -189,8 +192,25 @@ require_contains "Makefile" "test:" "Makefile must expose a test gate."
 require_contains "Makefile" "build:" "Makefile must expose a guarded build gate."
 require_contains "Makefile" "verify: lint test build" "Makefile verify must run lint, test, and build gates."
 require_contains "README.md" "make check" "README must document the make check wrapper."
+require_contains "README.md" "GitHub Actions" "README must document the GitHub Actions check."
 require_contains "README.md" "JNI bindings use static native signatures" "README must document JNI static native signatures."
+require_contains ".github/workflows/check.yml" "permissions:" "CI workflow must declare permissions."
+require_contains ".github/workflows/check.yml" "contents: read" "CI workflow permissions must be read-only."
+require_contains ".github/workflows/check.yml" "timeout-minutes: 5" "CI workflow must have a bounded timeout."
+require_contains ".github/workflows/check.yml" "workflow_dispatch:" "CI workflow must support manual dispatch."
+require_contains ".github/workflows/check.yml" "actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10" "CI workflow must pin checkout."
+require_contains ".github/workflows/check.yml" 'ANDROID_HOME: ""' "CI workflow must clear Android SDK discovery."
+require_contains ".github/workflows/check.yml" 'ANDROID_SDK_ROOT: ""' "CI workflow must clear Android SDK root discovery."
+require_contains ".github/workflows/check.yml" 'NDK_BUILD: "__disabled_ndk_build__"' "CI workflow must disable ambient NDK rebuilds."
+
+if grep -Fq "/home/gjones" "$ROOT_DIR/Makefile"; then
+  printf '%s\n' "Makefile must not embed a maintainer-specific Android SDK path." >&2
+  exit 1
+fi
+require_contains ".github/workflows/check.yml" "make check" "CI workflow must run make check."
 require_contains "$CHECKSUM_PATH_PLAN" "status: completed" "Checksum path hygiene plan must be completed."
+require_contains "$CI_PLAN" "status: completed" "CI baseline plan must be completed."
+require_contains "$CI_PLAN" "make check" "CI baseline plan must document make check verification."
 
 if grep -Fq "nativeInit( JNIEnv*  env )" "$ROOT_DIR/jni/app-android.c"; then
   printf '%s\n' "static nativeInit JNI signature must not omit jclass." >&2

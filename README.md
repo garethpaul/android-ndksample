@@ -16,6 +16,7 @@ This repository preserves an older Ant/NDK Android project:
 - `jni/` contains the native C source, NDK makefiles, and upstream license files.
 - `libs/*/libsanangeles.so` contains checked-in runtime native libraries for the current sample.
 - `libs/SHA256SUMS` records checksums for the checked-in runtime libraries.
+- `.github/workflows/check.yml` runs the same `make check` baseline in GitHub Actions.
 
 The generated `obj/` directory is ignored and should not be committed. Runtime
 libraries in `libs/` are kept until they can be regenerated with a documented
@@ -43,6 +44,10 @@ make build
 `make lint` runs the SDK-free provenance check and Android lint when the legacy
 SDK lint tool is available. `make test` reruns the SDK-free provenance check.
 `make build` runs `ndk-build` when available and otherwise reports a clear skip.
+GitHub Actions runs `make check` on pushes and pull requests using the same
+guarded local targets.
+Hosted CI explicitly disables ambient SDK and NDK discovery; local native
+rebuilds require deliberate `ANDROID_HOME` and `NDK_BUILD` configuration.
 
 or run the underlying script directly:
 

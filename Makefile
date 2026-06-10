@@ -1,16 +1,16 @@
 .PHONY: build check lint test verify
 
-ANDROID_HOME ?= /home/gjones/android-sdk
+ANDROID_HOME ?=
 ANDROID_SDK_ROOT ?= $(ANDROID_HOME)
 ANDROID_LINT_TOOL ?= $(ANDROID_HOME)/tools/bin/lint
 NDK_BUILD ?= ndk-build
 
 lint:
 	scripts/check-baseline.sh
-	@if [ -x "$(ANDROID_LINT_TOOL)" ]; then \
+	@if [ -n "$(ANDROID_HOME)" ] && [ -x "$(ANDROID_LINT_TOOL)" ]; then \
 		ANDROID_HOME="$(ANDROID_HOME)" ANDROID_SDK_ROOT="$(ANDROID_SDK_ROOT)" "$(ANDROID_LINT_TOOL)" --exitcode .; \
 	else \
-		echo "Android lint unavailable at $(ANDROID_LINT_TOOL); legacy lint skipped."; \
+		echo "Android SDK not configured; legacy lint skipped."; \
 	fi
 
 test:
