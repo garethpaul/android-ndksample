@@ -27,6 +27,7 @@ Priority:
 - Keep Java pause/resume lifecycle callbacks safe when the GL view is missing
 - Keep native pause/resume lifecycle helpers idempotent across repeated calls
 - Keep native rendering guarded after teardown and repeated initialization
+- Keep native initialization fail-closed when OpenGL imports are unavailable
 - Keep JNI source signatures aligned with Java static native declarations
 - Keep root lint, test, and guarded native build gates available
 - Keep the SDK-free `make check` baseline running in GitHub Actions

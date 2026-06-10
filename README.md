@@ -67,12 +67,15 @@ Native pause/resume helpers are idempotent so repeated lifecycle callbacks do
 not corrupt the demo time offset.
 Native render calls are ignored after teardown, repeated cleanup is a no-op,
 and repeated native initialization releases the previous resource set first.
+Native initialization stops before demo setup when OpenGL ES imports are
+unavailable, cleans partial imports, and leaves rendering disabled.
 
 If the legacy Android SDK tools are available, run the Ant-project lint gate:
 
 ```sh
-ANDROID_HOME=/home/gjones/android-sdk ANDROID_SDK_ROOT=/home/gjones/android-sdk \
-  /home/gjones/android-sdk/tools/bin/lint --exitcode .
+export ANDROID_HOME=/path/to/android-sdk
+export ANDROID_SDK_ROOT="$ANDROID_HOME"
+"$ANDROID_HOME/tools/bin/lint" --exitcode .
 ```
 
 `lint.xml` suppresses only findings that are blocked by the current provenance
@@ -96,6 +99,7 @@ Do not replace checked-in `.so` files without documenting:
   repeated lifecycle callbacks.
 - Confirmation that renderer callbacks after native teardown do not use freed
   demo objects.
+- Confirmation that unavailable OpenGL ES imports fail before `appInit()`.
 
 `ndk-build` is not currently available in this environment, so binary
 regeneration is deferred.

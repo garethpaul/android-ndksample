@@ -54,7 +54,20 @@ Java_com_example_SanAngeles_DemoRenderer_nativeInit( JNIEnv*  env, jclass  clazz
         sNativeInitialized = 0;
     }
 
-    importGLInit();
+    if (!importGLInit()) {
+        __android_log_print(
+                ANDROID_LOG_ERROR,
+                "SanAngeles",
+                "OpenGL ES imports are unavailable");
+        importGLDeinit();
+        gAppAlive = 0;
+        return;
+    }
+
+    sDemoStopped = 0;
+    sTimeOffset = 0;
+    sTimeOffsetInit = 0;
+    sTimeStopped = 0;
     appInit();
     gAppAlive  = 1;
     sNativeInitialized = 1;

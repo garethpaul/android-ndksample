@@ -2,6 +2,11 @@
 
 ## 2026-06-10
 
+- Made native initialization stop and clean up when OpenGL ES imports are
+  unavailable, while resetting timing state before successful demo setup.
+- Made root checks location-independent, accepted `ANDROID_SDK_ROOT`, removed
+  a machine-local SDK path from docs, and pinned CI to Ubuntu 24.04 with
+  superseded-run cancellation.
 - Added pinned, read-only GitHub Actions that runs `make check` for the NDK
   provenance and lifecycle baseline with ambient SDK/NDK rebuilds disabled.
 - Extended the SDK-free baseline to require the CI workflow and completed CI
