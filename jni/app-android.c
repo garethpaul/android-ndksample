@@ -76,6 +76,14 @@ Java_com_example_SanAngeles_DemoRenderer_nativeInit( JNIEnv*  env, jclass  clazz
 void
 Java_com_example_SanAngeles_DemoRenderer_nativeResize( JNIEnv*  env, jclass  clazz, jint w, jint h )
 {
+    if (w <= 0 || h <= 0) {
+        __android_log_print(
+                ANDROID_LOG_WARN,
+                "SanAngeles",
+                "Ignoring invalid surface dimensions");
+        return;
+    }
+
     sWindowWidth  = w;
     sWindowHeight = h;
     __android_log_print(ANDROID_LOG_INFO, "SanAngeles", "resize w=%d h=%d", w, h);
@@ -151,7 +159,7 @@ Java_com_example_SanAngeles_DemoRenderer_nativeRender( JNIEnv*  env, jclass  cla
 {
     long   curTime;
 
-    if (!sNativeInitialized) {
+    if (!sNativeInitialized || sWindowWidth <= 0 || sWindowHeight <= 0) {
         return;
     }
 

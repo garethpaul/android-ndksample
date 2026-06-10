@@ -773,7 +773,7 @@ static void camTrack()
  */
 void appRender(long tick, int width, int height)
 {
-    if (!gAppAlive || !appResourcesReady())
+    if (!gAppAlive || !appResourcesReady() || width <= 0 || height <= 0)
         return;
     if (sStartTick == 0)
         sStartTick = tick;

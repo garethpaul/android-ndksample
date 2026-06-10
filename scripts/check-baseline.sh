@@ -174,6 +174,22 @@ require_contains "jni/app-android.c" "if (!importGLInit())" "Native initializati
 require_contains "jni/app-android.c" "OpenGL ES imports are unavailable" "Native initialization failure must use a generic diagnostic."
 require_contains "jni/app-android.c" "importGLDeinit();" "Failed OpenGL imports must be cleaned up."
 require_contains "jni/app-android.c" "gAppAlive = 0;" "Failed native initialization must mark the app inactive."
+require_contains "jni/app-android.c" "if (w <= 0 || h <= 0)" "JNI resize must reject invalid surface dimensions."
+require_contains "jni/app-android.c" "Ignoring invalid surface dimensions" "Invalid surface dimensions must use a generic warning."
+require_contains "jni/app-android.c" "sWindowWidth <= 0 || sWindowHeight <= 0" "JNI render must reject invalid stored dimensions."
+require_contains "jni/demo.c" "width <= 0 || height <= 0" "Portable renderer must reject invalid dimensions before projection math."
+
+NATIVE_DONE=$(awk '/Java_com_example_SanAngeles_DemoRenderer_nativeDone/,/^}/' "$ROOT_DIR/jni/app-android.c")
+if printf '%s\n' "$NATIVE_DONE" | grep -Fq "sWindowWidth"; then
+  printf '%s\n' "Native teardown must not depend on surface dimensions." >&2
+  exit 1
+fi
+
+NATIVE_RENDER=$(awk '/Java_com_example_SanAngeles_DemoRenderer_nativeRender/,/^}/' "$ROOT_DIR/jni/app-android.c")
+if ! printf '%s\n' "$NATIVE_RENDER" | grep -Fq "sWindowWidth <= 0 || sWindowHeight <= 0"; then
+  printf '%s\n' "Native render must own the stored-dimension guard." >&2
+  exit 1
+fi
 require_contains "jni/app-android.c" "sTimeOffsetInit = 0;" "Native initialization must reset timing state."
 if grep -Fq "    importGLInit();" "$ROOT_DIR/jni/app-android.c"; then
   printf '%s\n' "Native initialization must not ignore the OpenGL import result." >&2
@@ -272,6 +288,11 @@ if ! grep -Fq "Native render calls are ignored after teardown" "$ROOT_DIR/README
   exit 1
 fi
 
+if ! grep -Fq "Native surface dimensions are rejected" "$ROOT_DIR/README.md"; then
+  printf '%s\n' "README must document native surface dimension guards." >&2
+  exit 1
+fi
+
 if ! grep -Fq "make check" "$ROOT_DIR/$TEARDOWN_PLAN"; then
   printf '%s\n' "NDK render-after-teardown plan must document make check verification." >&2
   exit 1
@@ -284,6 +305,12 @@ fi
 
 if ! grep -Fq "make check" "$ROOT_DIR/$JAVA_LIFECYCLE_PLAN"; then
   printf '%s\n' "NDK Java lifecycle view guard plan must document make check verification." >&2
+  exit 1
+fi
+
+if ! grep -Fq "Status: Completed" "$ROOT_DIR/docs/plans/2026-06-10-ndk-surface-dimension-guards.md" || \
+   ! grep -Fq "make check" "$ROOT_DIR/docs/plans/2026-06-10-ndk-surface-dimension-guards.md"; then
+  printf '%s\n' "NDK surface-dimension plan must record completed status and make check verification." >&2
   exit 1
 fi
 

@@ -4,6 +4,8 @@
 
 - Made native initialization stop and clean up when OpenGL ES imports are
   unavailable, while resetting timing state before successful demo setup.
+- Rejected non-positive surface dimensions at the JNI and portable render
+  boundaries before viewport and projection calculations.
 - Made root checks location-independent, accepted `ANDROID_SDK_ROOT`, removed
   a machine-local SDK path from docs, and pinned CI to Ubuntu 24.04 with
   superseded-run cancellation.
