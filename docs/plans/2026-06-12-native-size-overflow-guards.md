@@ -1,6 +1,6 @@
 # Native Size Overflow Guards
 
-Status: Implementation Complete; Hosted Verification Pending
+Status: Completed
 
 ## Context
 
@@ -40,7 +40,8 @@ geometry or replacing historical runtime libraries.
 - Repeat `make check` from a fresh external clone.
 - Reject focused arithmetic, allocation, test-wiring, documentation, plan, and
   ownership mutations.
-- Pass exact-head push and pull-request hosted verification.
+- Pass exact-head pull-request baseline and CodeQL verification; default-branch
+  push verification remains post-merge.
 
 ## Verification Evidence
 
@@ -53,7 +54,9 @@ geometry or replacing historical runtime libraries.
   fresh external clone with the staged patch applied.
 - All 29 focused arithmetic, allocation, geometry integration, test-wiring,
   ownership, documentation, and plan mutations were rejected.
-- Exact-head hosted push and pull-request verification remains pending.
+- Implementation SHA `b04efd9ab28df9005adb82e5b76ebb64f7f62e9b`
+  passed pull-request baseline run `27403851128` and CodeQL run `27403850106`.
+  The exact PR ref reported zero open code-scanning alerts after C/C++ analysis.
 
 ## Boundaries
 
