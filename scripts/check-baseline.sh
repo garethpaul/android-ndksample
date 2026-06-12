@@ -9,6 +9,7 @@ CI_WORKFLOW="$ROOT_DIR/.github/workflows/check.yml"
 CODEOWNERS="$ROOT_DIR/.github/CODEOWNERS"
 CI_PLAN="docs/plans/2026-06-10-ci-baseline.md"
 ALLOCATION_FAILURE_PLAN="docs/plans/2026-06-12-ndk-allocation-failure-recovery.md"
+SIZE_OVERFLOW_PLAN="docs/plans/2026-06-12-native-size-overflow-guards.md"
 
 expected_ci_workflow() {
   cat <<'EOF'
@@ -77,17 +78,21 @@ for path in \
   "$JAVA_LIFECYCLE_PLAN" \
   "$CI_PLAN" \
   "$ALLOCATION_FAILURE_PLAN" \
+  "$SIZE_OVERFLOW_PLAN" \
   "AndroidManifest.xml" \
   "project.properties" \
   "jni/Android.mk" \
   "jni/Application.mk" \
   "jni/app-android.c" \
+  "jni/checked-size.h" \
   "jni/demo.c" \
   "jni/importgl.c" \
   "jni/license.txt" \
   "jni/license-BSD.txt" \
   "jni/license-LGPL.txt" \
   "libs/SHA256SUMS" \
+  "scripts/test-native-size-guards.c" \
+  "scripts/test-native-size-guards.sh" \
   "lint.xml"; do
   require_file "$path" "Required baseline file is missing: $path"
 done
@@ -356,7 +361,7 @@ if [ ! -f "$CODEOWNERS" ] ||
   ! grep -Fxq '/.github/CODEOWNERS @garethpaul' "$CODEOWNERS" ||
   ! grep -Fxq '/.github/workflows/ @garethpaul' "$CODEOWNERS" ||
   ! grep -Fxq '/Makefile @garethpaul' "$CODEOWNERS" ||
-  ! grep -Fxq '/scripts/check-baseline.sh @garethpaul' "$CODEOWNERS" ||
+  ! grep -Fxq '/scripts/ @garethpaul' "$CODEOWNERS" ||
   ! grep -Fxq '/jni/ @garethpaul' "$CODEOWNERS" ||
   ! grep -Fxq '/libs/ @garethpaul' "$CODEOWNERS"; then
   printf '%s\n' "CODEOWNERS must protect CI controls, native source, and checked-in libraries." >&2
@@ -379,6 +384,40 @@ require_contains "$CI_PLAN" "status: completed" "CI baseline plan must be comple
 require_contains "$CI_PLAN" "make check" "CI baseline plan must document make check verification."
 require_contains "$ALLOCATION_FAILURE_PLAN" "Status: Completed" "NDK allocation failure recovery plan must be completed."
 require_contains "$ALLOCATION_FAILURE_PLAN" "make check" "NDK allocation failure recovery plan must document make check verification."
+require_contains "$SIZE_OVERFLOW_PLAN" "Status: Implementation Complete; Hosted Verification Pending" "Native size overflow plan must truthfully record pending hosted verification."
+require_contains "$SIZE_OVERFLOW_PLAN" "CodeQL alert 1" "Native size overflow plan must identify the source alert."
+require_contains "$SIZE_OVERFLOW_PLAN" "fresh external clone" "Native size overflow plan must require fresh-clone verification."
+require_contains "$SIZE_OVERFLOW_PLAN" "passed under GCC and Clang" "Native size overflow plan must record compiler verification."
+require_contains "$SIZE_OVERFLOW_PLAN" "All 29 focused arithmetic" "Native size overflow plan must record mutation evidence."
+require_contains "$SIZE_OVERFLOW_PLAN" "Exact-head hosted push and pull-request verification remains pending." "Native size overflow plan must truthfully record pending hosted verification."
+
+require_contains "jni/checked-size.h" "left > LONG_MAX / right" "Checked product helper must reject signed long overflow before multiplication."
+require_contains "jni/checked-size.h" "(unsigned long)count > (unsigned long)((size_t)-1)" "Checked allocation helper must reject counts wider than size_t."
+require_contains "jni/checked-size.h" "elementCount > (size_t)-1 / (size_t)components" "Checked allocation helper must reject component-count overflow."
+require_contains "jni/checked-size.h" "elementCount > (size_t)-1 / componentSize" "Checked allocation helper must reject byte-size overflow."
+require_contains "jni/demo.c" "checkedPositiveLongProduct((long)longitudeCount" "Supershape counts must use checked long products."
+require_contains "jni/demo.c" '#include "checked-size.h"' "Native geometry must include the checked-size helper."
+require_contains "jni/demo.c" "checkedPositiveLongProduct((long)(yEnd - yBegin)" "Ground-plane counts must use checked long products."
+require_contains "jni/demo.c" "checkedArrayByteSize(vertices, vertexComponents" "Vertex allocation must use checked byte counts."
+require_contains "jni/demo.c" "checkedArrayByteSize(vertices, 4, sizeof(GLubyte), &colorBytes)" "Color allocation must use checked byte counts."
+require_contains "jni/demo.c" "checkedArrayByteSize(vertices, 3, sizeof(GLfixed), &normalBytes)" "Normal allocation must use checked byte counts."
+require_contains "jni/demo.c" "vertices > INT_MAX" "OpenGL draw counts must reject values outside the int boundary."
+if grep -Eq 'const long triangleCount = longitudeCount \* latitudeCount' "$ROOT_DIR/jni/demo.c"; then
+  printf '%s\n' "Supershape counts must not multiply ints before widening." >&2
+  exit 1
+fi
+require_contains "Makefile" '$(ROOT)scripts/test-native-size-guards.sh' "Makefile test target must run native size boundary tests."
+if [ ! -x "$ROOT_DIR/scripts/test-native-size-guards.sh" ]; then
+  printf '%s\n' "Native size boundary test runner must be executable." >&2
+  exit 1
+fi
+require_contains "scripts/test-native-size-guards.sh" '"$CC" -std=c89 -pedantic -Wall -Wextra -Werror' "Native size tests must compile under strict C89 warnings-as-errors."
+require_contains "scripts/test-native-size-guards.c" "signed long overflow rejected" "Native size tests must cover signed product overflow."
+require_contains "scripts/test-native-size-guards.c" "maximum signed long product accepted" "Native size tests must cover the valid signed product boundary."
+require_contains "scripts/test-native-size-guards.c" "allocation byte overflow rejected" "Native size tests must cover allocation byte overflow."
+require_contains "scripts/test-native-size-guards.c" "maximum allocation byte count accepted" "Native size tests must cover the valid allocation boundary."
+require_contains "README.md" "allocation byte counts use checked products" "README must document native size overflow guards."
+require_contains "CHANGES.md" "allocation-size products against signed" "CHANGES must record native size overflow guards."
 
 if grep -Fq "nativeInit( JNIEnv*  env )" "$ROOT_DIR/jni/app-android.c"; then
   printf '%s\n' "static nativeInit JNI signature must not omit jclass." >&2

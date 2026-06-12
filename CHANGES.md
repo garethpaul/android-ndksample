@@ -2,6 +2,8 @@
 
 ## 2026-06-12
 
+- Guarded native geometry and allocation-size products against signed and
+  `size_t` overflow, with portable host boundary tests.
 - Replaced native demo allocation assertions with recoverable cleanup and kept
   Android rendering disabled when object initialization cannot complete.
 

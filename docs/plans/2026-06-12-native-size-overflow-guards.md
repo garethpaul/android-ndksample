@@ -1,6 +1,6 @@
 # Native Size Overflow Guards
 
-Status: Planned
+Status: Implementation Complete; Hosted Verification Pending
 
 ## Context
 
@@ -41,6 +41,19 @@ geometry or replacing historical runtime libraries.
 - Reject focused arithmetic, allocation, test-wiring, documentation, plan, and
   ownership mutations.
 - Pass exact-head push and pull-request hosted verification.
+
+## Verification Evidence
+
+- The portable C boundary test passed under GCC and Clang with strict C89
+  warnings as errors, and under GCC undefined-behavior instrumentation.
+- `make check` passed from the repository and through an absolute Makefile
+  path; the unavailable Android SDK lint and NDK rebuild were truthfully
+  skipped.
+- The complete gate and all seven historical library checksums passed from a
+  fresh external clone with the staged patch applied.
+- All 29 focused arithmetic, allocation, geometry integration, test-wiring,
+  ownership, documentation, and plan mutations were rejected.
+- Exact-head hosted push and pull-request verification remains pending.
 
 ## Boundaries
 
