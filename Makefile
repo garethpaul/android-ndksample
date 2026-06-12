@@ -17,6 +17,7 @@ lint:
 
 test:
 	$(ROOT)scripts/check-baseline.sh
+	$(ROOT)scripts/test-native-size-guards.sh
 
 build:
 	@if command -v "$(NDK_BUILD)" >/dev/null 2>&1; then \

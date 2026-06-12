@@ -33,6 +33,11 @@ Helpful reports include:
 - Pinned, read-only GitHub Actions runs the SDK-free `make check` baseline
   without ambient SDK or NDK discovery; review workflow or native-binary
   provenance changes carefully before merge.
+- Hosted checkout credentials are not persisted. Self-protecting CODEOWNERS
+  assigns CI controls, native source, and checked-in libraries to the repository
+  owner; repository rules should require that approval.
+- `check.yml` remains the only approved workflow until another workflow
+  receives an explicit least-privilege security contract.
 
 ## Mobile Privacy Notes
 

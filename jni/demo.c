@@ -30,6 +30,7 @@
 #include "importgl.h"
 
 #include "app.h"
+#include "checked-size.h"
 #include "shapes.h"
 #include "cams.h"
 
@@ -133,18 +134,26 @@ static GLOBJECT * newGLObject(long vertices, int vertexComponents,
                               int useNormalArray)
 {
     GLOBJECT *result;
+    size_t vertexBytes, colorBytes, normalBytes = 0;
+
+    if (vertices > INT_MAX ||
+        !checkedArrayByteSize(vertices, vertexComponents, sizeof(GLfixed),
+                              &vertexBytes) ||
+        !checkedArrayByteSize(vertices, 4, sizeof(GLubyte), &colorBytes) ||
+        (useNormalArray &&
+         !checkedArrayByteSize(vertices, 3, sizeof(GLfixed), &normalBytes)))
+        return NULL;
+
     result = (GLOBJECT *)malloc(sizeof(GLOBJECT));
     if (result == NULL)
         return NULL;
     result->count = vertices;
     result->vertexComponents = vertexComponents;
-    result->vertexArray = (GLfixed *)malloc(vertices * vertexComponents *
-                                            sizeof(GLfixed));
-    result->colorArray = (GLubyte *)malloc(vertices * 4 * sizeof(GLubyte));
+    result->vertexArray = (GLfixed *)malloc(vertexBytes);
+    result->colorArray = (GLubyte *)malloc(colorBytes);
     if (useNormalArray)
     {
-        result->normalArray = (GLfixed *)malloc(vertices * 3 *
-                                                sizeof(GLfixed));
+        result->normalArray = (GLfixed *)malloc(normalBytes);
     }
     else
         result->normalArray = NULL;
@@ -219,12 +228,17 @@ static GLOBJECT * createSuperShape(const float *params)
     const int latitudeEnd = resol2 / 2;    // non-inclusive
     const int longitudeCount = resol1;
     const int latitudeCount = latitudeEnd - latitudeBegin;
-    const long triangleCount = longitudeCount * latitudeCount * 2;
-    const long vertices = triangleCount * 3;
+    long quadCount, triangleCount, vertices;
     GLOBJECT *result;
     float baseColor[3];
     int a, longitude, latitude;
     long currentVertex, currentQuad;
+
+    if (!checkedPositiveLongProduct((long)longitudeCount,
+                                    (long)latitudeCount, &quadCount) ||
+        !checkedPositiveLongProduct(quadCount, 2, &triangleCount) ||
+        !checkedPositiveLongProduct(triangleCount, 3, &vertices))
+        return NULL;
 
     result = newGLObject(vertices, 3, 1);
     if (result == NULL)
@@ -363,11 +377,16 @@ static GLOBJECT * createGroundPlane()
     const int scale = 4;
     const int yBegin = -15, yEnd = 15;    // ends are non-inclusive
     const int xBegin = -15, xEnd = 15;
-    const long triangleCount = (yEnd - yBegin) * (xEnd - xBegin) * 2;
-    const long vertices = triangleCount * 3;
+    long quadCount, triangleCount, vertices;
     GLOBJECT *result;
     int x, y;
     long currentVertex, currentQuad;
+
+    if (!checkedPositiveLongProduct((long)(yEnd - yBegin),
+                                    (long)(xEnd - xBegin), &quadCount) ||
+        !checkedPositiveLongProduct(quadCount, 2, &triangleCount) ||
+        !checkedPositiveLongProduct(triangleCount, 3, &vertices))
+        return NULL;
 
     result = newGLObject(vertices, 2, 0);
     if (result == NULL)

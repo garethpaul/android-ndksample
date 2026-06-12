@@ -5,8 +5,48 @@ ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 CHECKSUM_PATH_PLAN="docs/plans/2026-06-09-ndk-checksum-path-hygiene.md"
 TEARDOWN_PLAN="docs/plans/2026-06-09-ndk-render-after-teardown.md"
 JAVA_LIFECYCLE_PLAN="docs/plans/2026-06-09-ndk-java-lifecycle-view-guard.md"
+CI_WORKFLOW="$ROOT_DIR/.github/workflows/check.yml"
+CODEOWNERS="$ROOT_DIR/.github/CODEOWNERS"
 CI_PLAN="docs/plans/2026-06-10-ci-baseline.md"
 ALLOCATION_FAILURE_PLAN="docs/plans/2026-06-12-ndk-allocation-failure-recovery.md"
+SIZE_OVERFLOW_PLAN="docs/plans/2026-06-12-native-size-overflow-guards.md"
+
+expected_ci_workflow() {
+  cat <<'EOF'
+name: Check
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Run baseline
+        run: make check
+        env:
+          ANDROID_HOME: ""
+          ANDROID_SDK_ROOT: ""
+          NDK_BUILD: "__disabled_ndk_build__"
+EOF
+}
 
 require_file() {
   path=$1
@@ -38,17 +78,21 @@ for path in \
   "$JAVA_LIFECYCLE_PLAN" \
   "$CI_PLAN" \
   "$ALLOCATION_FAILURE_PLAN" \
+  "$SIZE_OVERFLOW_PLAN" \
   "AndroidManifest.xml" \
   "project.properties" \
   "jni/Android.mk" \
   "jni/Application.mk" \
   "jni/app-android.c" \
+  "jni/checked-size.h" \
   "jni/demo.c" \
   "jni/importgl.c" \
   "jni/license.txt" \
   "jni/license-BSD.txt" \
   "jni/license-LGPL.txt" \
   "libs/SHA256SUMS" \
+  "scripts/test-native-size-guards.c" \
+  "scripts/test-native-size-guards.sh" \
   "lint.xml"; do
   require_file "$path" "Required baseline file is missing: $path"
 done
@@ -229,31 +273,56 @@ if printf '%s\n' "$APP_INIT" | grep -Eq 'assert\(s(SuperShapeObjects\[a\]|Ground
   printf '%s\n' "Native demo initialization must not abort on allocation failure." >&2
   exit 1
 fi
-for allocation_contract in \
-  "if (sSuperShapeObjects[a] == NULL)" \
-  "if (sGroundPlane == NULL)" \
-  "gAppAlive = 0;" \
-  "appDeinit();" \
-  "return;"; do
-  if ! printf '%s\n' "$APP_INIT" | grep -Fq "$allocation_contract"; then
-    printf '%s\n' "Native allocation recovery is missing: $allocation_contract" >&2
-    exit 1
-  fi
+SUPER_SHAPE_FAILURE=$(printf '%s\n' "$APP_INIT" | awk '/if \(sSuperShapeObjects\[a\] == NULL\)/,/^        }/')
+GROUND_PLANE_FAILURE=$(printf '%s\n' "$APP_INIT" | awk '/if \(sGroundPlane == NULL\)/,/^    }/')
+for allocation_failure in "$SUPER_SHAPE_FAILURE" "$GROUND_PLANE_FAILURE"; do
+  for allocation_contract in \
+    "gAppAlive = 0;" \
+    "appDeinit();" \
+    "return;"; do
+    if ! printf '%s\n' "$allocation_failure" | grep -Fq "$allocation_contract"; then
+      printf '%s\n' "Native allocation failure branch is missing: $allocation_contract" >&2
+      exit 1
+    fi
+  done
 done
 
 NATIVE_INIT=$(awk '/Java_com_example_SanAngeles_DemoRenderer_nativeInit/,/^}/' "$ROOT_DIR/jni/app-android.c")
+NATIVE_ALLOCATION_FAILURE=$(awk '/if \(!gAppAlive\)/,/^    }/' "$ROOT_DIR/jni/app-android.c")
 for allocation_failure_contract in \
-  "gAppAlive = 1;" \
-  "if (!gAppAlive)" \
   "Demo resource initialization failed" \
   "appDeinit();" \
   "importGLDeinit();" \
   "return;"; do
-  if ! printf '%s\n' "$NATIVE_INIT" | grep -Fq "$allocation_failure_contract"; then
+  if ! printf '%s\n' "$NATIVE_ALLOCATION_FAILURE" | grep -Fq "$allocation_failure_contract"; then
     printf '%s\n' "Android JNI allocation failure handling is missing: $allocation_failure_contract" >&2
     exit 1
   fi
 done
+
+for native_init_milestone in \
+  "gAppAlive = 1;" \
+  "appInit();" \
+  "if (!gAppAlive)" \
+  "sNativeInitialized = 1;"; do
+  if [ "$(printf '%s\n' "$NATIVE_INIT" | grep -Fc "$native_init_milestone")" -ne 1 ]; then
+    printf '%s\n' "Android JNI initialization must contain exactly one milestone: $native_init_milestone" >&2
+    exit 1
+  fi
+done
+
+native_alive_line=$(printf '%s\n' "$NATIVE_INIT" | grep -nF "gAppAlive = 1;" | cut -d: -f1)
+native_app_init_line=$(printf '%s\n' "$NATIVE_INIT" | grep -nF "appInit();" | cut -d: -f1)
+native_failure_line=$(printf '%s\n' "$NATIVE_INIT" | grep -nF "if (!gAppAlive)" | cut -d: -f1)
+native_ready_line=$(printf '%s\n' "$NATIVE_INIT" | grep -nF "sNativeInitialized = 1;" | cut -d: -f1)
+if [ -z "$native_alive_line" ] || [ -z "$native_app_init_line" ] || \
+  [ -z "$native_failure_line" ] || [ -z "$native_ready_line" ] || \
+  [ "$native_alive_line" -ge "$native_app_init_line" ] || \
+  [ "$native_app_init_line" -ge "$native_failure_line" ] || \
+  [ "$native_failure_line" -ge "$native_ready_line" ]; then
+  printf '%s\n' "Android JNI initialization must check allocation failure before marking native state ready." >&2
+  exit 1
+fi
 
 require_contains "lint.xml" "LintError" "lint.xml must document the no-classfiles lint limitation."
 require_contains "lint.xml" "UsesMinSdkAttributes" "lint.xml must document the deferred target SDK policy."
@@ -274,18 +343,31 @@ require_contains "Makefile" "test:" "Makefile must expose a test gate."
 require_contains "Makefile" "build:" "Makefile must expose a guarded build gate."
 require_contains "Makefile" "verify: lint test build" "Makefile verify must run lint, test, and build gates."
 require_contains "README.md" "make check" "README must document the make check wrapper."
-require_contains "README.md" "GitHub Actions" "README must document the GitHub Actions check."
 require_contains "README.md" "JNI bindings use static native signatures" "README must document JNI static native signatures."
-require_contains ".github/workflows/check.yml" "permissions:" "CI workflow must declare permissions."
-require_contains ".github/workflows/check.yml" "contents: read" "CI workflow permissions must be read-only."
-require_contains ".github/workflows/check.yml" "runs-on: ubuntu-24.04" "CI workflow must use a fixed Ubuntu runner image."
-require_contains ".github/workflows/check.yml" "cancel-in-progress: true" "CI workflow must cancel superseded runs."
-require_contains ".github/workflows/check.yml" "timeout-minutes: 5" "CI workflow must have a bounded timeout."
-require_contains ".github/workflows/check.yml" "workflow_dispatch:" "CI workflow must support manual dispatch."
-require_contains ".github/workflows/check.yml" "actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10" "CI workflow must pin checkout."
-require_contains ".github/workflows/check.yml" 'ANDROID_HOME: ""' "CI workflow must clear Android SDK discovery."
-require_contains ".github/workflows/check.yml" 'ANDROID_SDK_ROOT: ""' "CI workflow must clear Android SDK root discovery."
-require_contains ".github/workflows/check.yml" 'NDK_BUILD: "__disabled_ndk_build__"' "CI workflow must disable ambient NDK rebuilds."
+
+workflow_paths=$(find "$ROOT_DIR/.github/workflows" -type f \( -name '*.yml' -o -name '*.yaml' \) -print)
+if [ "$workflow_paths" != "$CI_WORKFLOW" ]; then
+  printf '%s\n' "check.yml must remain the only approved GitHub Actions workflow." >&2
+  exit 1
+fi
+
+if [ "$(cat "$CI_WORKFLOW")" != "$(expected_ci_workflow)" ]; then
+  printf '%s\n' "GitHub Actions check workflow must match the approved SDK-free NDK security baseline." >&2
+  exit 1
+fi
+
+if [ ! -f "$CODEOWNERS" ] ||
+  [ "$(wc -l < "$CODEOWNERS" | tr -d ' ')" -ne 6 ] ||
+  ! grep -Fxq '/.github/CODEOWNERS @garethpaul' "$CODEOWNERS" ||
+  ! grep -Fxq '/.github/workflows/ @garethpaul' "$CODEOWNERS" ||
+  ! grep -Fxq '/Makefile @garethpaul' "$CODEOWNERS" ||
+  ! grep -Fxq '/scripts/ @garethpaul' "$CODEOWNERS" ||
+  ! grep -Fxq '/jni/ @garethpaul' "$CODEOWNERS" ||
+  ! grep -Fxq '/libs/ @garethpaul' "$CODEOWNERS"; then
+  printf '%s\n' "CODEOWNERS must protect CI controls, native source, and checked-in libraries." >&2
+  exit 1
+fi
+
 require_contains "Makefile" 'ROOT := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))' "Makefile must resolve repository paths from its own location."
 require_contains "Makefile" 'ANDROID_SDK := $(if $(ANDROID_HOME),$(ANDROID_HOME),$(ANDROID_SDK_ROOT))' "Makefile must accept either Android SDK environment variable."
 
@@ -297,12 +379,47 @@ if grep -Fq "/home/gjones" "$ROOT_DIR/README.md"; then
   printf '%s\n' "README must not embed a maintainer-specific Android SDK path." >&2
   exit 1
 fi
-require_contains ".github/workflows/check.yml" "make check" "CI workflow must run make check."
 require_contains "$CHECKSUM_PATH_PLAN" "status: completed" "Checksum path hygiene plan must be completed."
 require_contains "$CI_PLAN" "status: completed" "CI baseline plan must be completed."
 require_contains "$CI_PLAN" "make check" "CI baseline plan must document make check verification."
 require_contains "$ALLOCATION_FAILURE_PLAN" "Status: Completed" "NDK allocation failure recovery plan must be completed."
 require_contains "$ALLOCATION_FAILURE_PLAN" "make check" "NDK allocation failure recovery plan must document make check verification."
+require_contains "$SIZE_OVERFLOW_PLAN" "Status: Completed" "Native size overflow plan must record completed status."
+require_contains "$SIZE_OVERFLOW_PLAN" "CodeQL alert 1" "Native size overflow plan must identify the source alert."
+require_contains "$SIZE_OVERFLOW_PLAN" "fresh external clone" "Native size overflow plan must require fresh-clone verification."
+require_contains "$SIZE_OVERFLOW_PLAN" "passed under GCC and Clang" "Native size overflow plan must record compiler verification."
+require_contains "$SIZE_OVERFLOW_PLAN" "All 29 focused arithmetic" "Native size overflow plan must record mutation evidence."
+require_contains "$SIZE_OVERFLOW_PLAN" "b04efd9ab28df9005adb82e5b76ebb64f7f62e9b" "Native size overflow plan must record the verified implementation SHA."
+require_contains "$SIZE_OVERFLOW_PLAN" 'pull-request baseline run `27403851128` and CodeQL run `27403850106`' "Native size overflow plan must record exact hosted run evidence."
+require_contains "$SIZE_OVERFLOW_PLAN" "zero open code-scanning alerts" "Native size overflow plan must record the PR-ref alert result."
+
+require_contains "jni/checked-size.h" "left > LONG_MAX / right" "Checked product helper must reject signed long overflow before multiplication."
+require_contains "jni/checked-size.h" "(unsigned long)count > (unsigned long)((size_t)-1)" "Checked allocation helper must reject counts wider than size_t."
+require_contains "jni/checked-size.h" "elementCount > (size_t)-1 / (size_t)components" "Checked allocation helper must reject component-count overflow."
+require_contains "jni/checked-size.h" "elementCount > (size_t)-1 / componentSize" "Checked allocation helper must reject byte-size overflow."
+require_contains "jni/demo.c" "checkedPositiveLongProduct((long)longitudeCount" "Supershape counts must use checked long products."
+require_contains "jni/demo.c" '#include "checked-size.h"' "Native geometry must include the checked-size helper."
+require_contains "jni/demo.c" "checkedPositiveLongProduct((long)(yEnd - yBegin)" "Ground-plane counts must use checked long products."
+require_contains "jni/demo.c" "checkedArrayByteSize(vertices, vertexComponents" "Vertex allocation must use checked byte counts."
+require_contains "jni/demo.c" "checkedArrayByteSize(vertices, 4, sizeof(GLubyte), &colorBytes)" "Color allocation must use checked byte counts."
+require_contains "jni/demo.c" "checkedArrayByteSize(vertices, 3, sizeof(GLfixed), &normalBytes)" "Normal allocation must use checked byte counts."
+require_contains "jni/demo.c" "vertices > INT_MAX" "OpenGL draw counts must reject values outside the int boundary."
+if grep -Eq 'const long triangleCount = longitudeCount \* latitudeCount' "$ROOT_DIR/jni/demo.c"; then
+  printf '%s\n' "Supershape counts must not multiply ints before widening." >&2
+  exit 1
+fi
+require_contains "Makefile" '$(ROOT)scripts/test-native-size-guards.sh' "Makefile test target must run native size boundary tests."
+if [ ! -x "$ROOT_DIR/scripts/test-native-size-guards.sh" ]; then
+  printf '%s\n' "Native size boundary test runner must be executable." >&2
+  exit 1
+fi
+require_contains "scripts/test-native-size-guards.sh" '"$CC" -std=c89 -pedantic -Wall -Wextra -Werror' "Native size tests must compile under strict C89 warnings-as-errors."
+require_contains "scripts/test-native-size-guards.c" "signed long overflow rejected" "Native size tests must cover signed product overflow."
+require_contains "scripts/test-native-size-guards.c" "maximum signed long product accepted" "Native size tests must cover the valid signed product boundary."
+require_contains "scripts/test-native-size-guards.c" "allocation byte overflow rejected" "Native size tests must cover allocation byte overflow."
+require_contains "scripts/test-native-size-guards.c" "maximum allocation byte count accepted" "Native size tests must cover the valid allocation boundary."
+require_contains "README.md" "allocation byte counts use checked products" "README must document native size overflow guards."
+require_contains "CHANGES.md" "allocation-size products against signed" "CHANGES must record native size overflow guards."
 
 if grep -Fq "nativeInit( JNIEnv*  env )" "$ROOT_DIR/jni/app-android.c"; then
   printf '%s\n' "static nativeInit JNI signature must not omit jclass." >&2

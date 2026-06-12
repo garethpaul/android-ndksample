@@ -2,6 +2,8 @@
 
 ## 2026-06-12
 
+- Guarded native geometry and allocation-size products against signed and
+  `size_t` overflow, with portable host boundary tests.
 - Replaced native demo allocation assertions with recoverable cleanup and kept
   Android rendering disabled when object initialization cannot complete.
 
@@ -19,6 +21,9 @@
 - Extended the SDK-free baseline to require the CI workflow and completed CI
   plan.
 - Removed the maintainer-specific Android SDK path from the Makefile.
+- Disabled persisted checkout credentials, added ownership for native and CI
+  control paths, and replaced partial workflow checks with one canonical
+  workflow contract.
 
 ## 2026-06-09
 

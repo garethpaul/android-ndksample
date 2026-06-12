@@ -73,6 +73,8 @@ Native surface dimensions are rejected when width or height is non-positive,
 preventing invalid projection aspect-ratio calculations.
 Native allocation failures release partial demo objects, disable rendering,
 and release imported OpenGL bindings instead of aborting the process.
+Native geometry and allocation byte counts use checked products so invalid or
+unrepresentable dimensions fail before integer overflow or allocation.
 
 If the legacy Android SDK tools are available, run the Ant-project lint gate:
 
