@@ -1,5 +1,10 @@
 # Changes
 
+## 2026-06-12
+
+- Replaced native demo allocation assertions with recoverable cleanup and kept
+  Android rendering disabled when object initialization cannot complete.
+
 ## 2026-06-10
 
 - Made native initialization stop and clean up when OpenGL ES imports are

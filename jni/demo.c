@@ -498,10 +498,20 @@ void appInit()
     for (a = 0; a < SUPERSHAPE_COUNT; ++a)
     {
         sSuperShapeObjects[a] = createSuperShape(sSuperShapeParams[a]);
-        assert(sSuperShapeObjects[a] != NULL);
+        if (sSuperShapeObjects[a] == NULL)
+        {
+            gAppAlive = 0;
+            appDeinit();
+            return;
+        }
     }
     sGroundPlane = createGroundPlane();
-    assert(sGroundPlane != NULL);
+    if (sGroundPlane == NULL)
+    {
+        gAppAlive = 0;
+        appDeinit();
+        return;
+    }
 }
 
 
