@@ -68,8 +68,17 @@ Java_com_example_SanAngeles_DemoRenderer_nativeInit( JNIEnv*  env, jclass  clazz
     sTimeOffset = 0;
     sTimeOffsetInit = 0;
     sTimeStopped = 0;
+    gAppAlive = 1;
     appInit();
-    gAppAlive  = 1;
+    if (!gAppAlive) {
+        __android_log_print(
+                ANDROID_LOG_ERROR,
+                "SanAngeles",
+                "Demo resource initialization failed");
+        appDeinit();
+        importGLDeinit();
+        return;
+    }
     sNativeInitialized = 1;
 }
 

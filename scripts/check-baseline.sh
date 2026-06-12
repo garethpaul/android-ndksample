@@ -7,6 +7,8 @@ TEARDOWN_PLAN="docs/plans/2026-06-09-ndk-render-after-teardown.md"
 JAVA_LIFECYCLE_PLAN="docs/plans/2026-06-09-ndk-java-lifecycle-view-guard.md"
 CI_WORKFLOW="$ROOT_DIR/.github/workflows/check.yml"
 CODEOWNERS="$ROOT_DIR/.github/CODEOWNERS"
+CI_PLAN="docs/plans/2026-06-10-ci-baseline.md"
+ALLOCATION_FAILURE_PLAN="docs/plans/2026-06-12-ndk-allocation-failure-recovery.md"
 
 expected_ci_workflow() {
   cat <<'EOF'
@@ -73,6 +75,8 @@ for path in \
   "$CHECKSUM_PATH_PLAN" \
   "$TEARDOWN_PLAN" \
   "$JAVA_LIFECYCLE_PLAN" \
+  "$CI_PLAN" \
+  "$ALLOCATION_FAILURE_PLAN" \
   "AndroidManifest.xml" \
   "project.properties" \
   "jni/Android.mk" \
@@ -258,6 +262,63 @@ require_contains "jni/demo.c" "sSuperShapeObjects[a] = NULL;" "Native demo clean
 require_contains "jni/demo.c" "sGroundPlane = NULL;" "Native demo cleanup must null the freed ground-plane pointer."
 require_contains "jni/demo.c" "static int appResourcesReady()" "Native render path must expose a resource-readiness guard."
 require_contains "jni/demo.c" "!appResourcesReady()" "Native render path must skip drawing after resource teardown."
+
+APP_INIT=$(awk '/^void appInit\(\)/,/^}/' "$ROOT_DIR/jni/demo.c")
+if printf '%s\n' "$APP_INIT" | grep -Eq 'assert\(s(SuperShapeObjects\[a\]|GroundPlane) != NULL\)'; then
+  printf '%s\n' "Native demo initialization must not abort on allocation failure." >&2
+  exit 1
+fi
+SUPER_SHAPE_FAILURE=$(printf '%s\n' "$APP_INIT" | awk '/if \(sSuperShapeObjects\[a\] == NULL\)/,/^        }/')
+GROUND_PLANE_FAILURE=$(printf '%s\n' "$APP_INIT" | awk '/if \(sGroundPlane == NULL\)/,/^    }/')
+for allocation_failure in "$SUPER_SHAPE_FAILURE" "$GROUND_PLANE_FAILURE"; do
+  for allocation_contract in \
+    "gAppAlive = 0;" \
+    "appDeinit();" \
+    "return;"; do
+    if ! printf '%s\n' "$allocation_failure" | grep -Fq "$allocation_contract"; then
+      printf '%s\n' "Native allocation failure branch is missing: $allocation_contract" >&2
+      exit 1
+    fi
+  done
+done
+
+NATIVE_INIT=$(awk '/Java_com_example_SanAngeles_DemoRenderer_nativeInit/,/^}/' "$ROOT_DIR/jni/app-android.c")
+NATIVE_ALLOCATION_FAILURE=$(awk '/if \(!gAppAlive\)/,/^    }/' "$ROOT_DIR/jni/app-android.c")
+for allocation_failure_contract in \
+  "Demo resource initialization failed" \
+  "appDeinit();" \
+  "importGLDeinit();" \
+  "return;"; do
+  if ! printf '%s\n' "$NATIVE_ALLOCATION_FAILURE" | grep -Fq "$allocation_failure_contract"; then
+    printf '%s\n' "Android JNI allocation failure handling is missing: $allocation_failure_contract" >&2
+    exit 1
+  fi
+done
+
+for native_init_milestone in \
+  "gAppAlive = 1;" \
+  "appInit();" \
+  "if (!gAppAlive)" \
+  "sNativeInitialized = 1;"; do
+  if [ "$(printf '%s\n' "$NATIVE_INIT" | grep -Fc "$native_init_milestone")" -ne 1 ]; then
+    printf '%s\n' "Android JNI initialization must contain exactly one milestone: $native_init_milestone" >&2
+    exit 1
+  fi
+done
+
+native_alive_line=$(printf '%s\n' "$NATIVE_INIT" | grep -nF "gAppAlive = 1;" | cut -d: -f1)
+native_app_init_line=$(printf '%s\n' "$NATIVE_INIT" | grep -nF "appInit();" | cut -d: -f1)
+native_failure_line=$(printf '%s\n' "$NATIVE_INIT" | grep -nF "if (!gAppAlive)" | cut -d: -f1)
+native_ready_line=$(printf '%s\n' "$NATIVE_INIT" | grep -nF "sNativeInitialized = 1;" | cut -d: -f1)
+if [ -z "$native_alive_line" ] || [ -z "$native_app_init_line" ] || \
+  [ -z "$native_failure_line" ] || [ -z "$native_ready_line" ] || \
+  [ "$native_alive_line" -ge "$native_app_init_line" ] || \
+  [ "$native_app_init_line" -ge "$native_failure_line" ] || \
+  [ "$native_failure_line" -ge "$native_ready_line" ]; then
+  printf '%s\n' "Android JNI initialization must check allocation failure before marking native state ready." >&2
+  exit 1
+fi
+
 require_contains "lint.xml" "LintError" "lint.xml must document the no-classfiles lint limitation."
 require_contains "lint.xml" "UsesMinSdkAttributes" "lint.xml must document the deferred target SDK policy."
 
@@ -314,6 +375,10 @@ if grep -Fq "/home/gjones" "$ROOT_DIR/README.md"; then
   exit 1
 fi
 require_contains "$CHECKSUM_PATH_PLAN" "status: completed" "Checksum path hygiene plan must be completed."
+require_contains "$CI_PLAN" "status: completed" "CI baseline plan must be completed."
+require_contains "$CI_PLAN" "make check" "CI baseline plan must document make check verification."
+require_contains "$ALLOCATION_FAILURE_PLAN" "Status: Completed" "NDK allocation failure recovery plan must be completed."
+require_contains "$ALLOCATION_FAILURE_PLAN" "make check" "NDK allocation failure recovery plan must document make check verification."
 
 if grep -Fq "nativeInit( JNIEnv*  env )" "$ROOT_DIR/jni/app-android.c"; then
   printf '%s\n' "static nativeInit JNI signature must not omit jclass." >&2
@@ -337,6 +402,11 @@ fi
 
 if ! grep -Fq "Native surface dimensions are rejected" "$ROOT_DIR/README.md"; then
   printf '%s\n' "README must document native surface dimension guards." >&2
+  exit 1
+fi
+
+if ! grep -Fq "Native allocation failures release partial demo objects" "$ROOT_DIR/README.md"; then
+  printf '%s\n' "README must document native allocation failure recovery." >&2
   exit 1
 fi
 
