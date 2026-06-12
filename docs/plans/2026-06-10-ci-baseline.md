@@ -26,6 +26,11 @@ provenance, lifecycle, and JNI signature checks run before review.
 - Extended `scripts/check-baseline.sh` to require the CI workflow and this
   completed maintenance plan.
 - Updated README, VISION, SECURITY, and CHANGES with the CI baseline.
+- Disabled persisted checkout credentials and replaced partial string matching
+  with a canonical single-workflow contract.
+- Added self-protecting CODEOWNERS coverage for CI controls, native source, and
+  checked-in libraries; repository rules remain responsible for requiring owner
+  approval.
 
 ## Verification
 
