@@ -77,7 +77,8 @@ and repeated native initialization releases the previous resource set first.
 Native initialization stops before demo setup when OpenGL ES imports are
 unavailable, cleans partial imports, and leaves rendering disabled.
 Portable GL loader cleanup guards Windows/Linux library handles and clears them
-only after a successful close, so repeated teardown does not reuse stale state.
+only after a successful close, then resets imported GL function pointers so
+repeated teardown does not reuse stale code addresses.
 Native surface dimensions are rejected when width or height is non-positive,
 preventing invalid projection aspect-ratio calculations.
 Native allocation failures release partial demo objects, disable rendering,

@@ -55,6 +55,60 @@ static void *sGLESSO = NULL;
 #include "importgl.h"
 
 
+#ifndef DISABLE_IMPORTGL
+static void clearImportedFunctions(void)
+{
+#define RESET_FUNC(funcName) FNPTR(funcName) = NULL
+
+#ifndef ANDROID_NDK
+    RESET_FUNC(eglChooseConfig);
+    RESET_FUNC(eglCreateContext);
+    RESET_FUNC(eglCreateWindowSurface);
+    RESET_FUNC(eglDestroyContext);
+    RESET_FUNC(eglDestroySurface);
+    RESET_FUNC(eglGetConfigAttrib);
+    RESET_FUNC(eglGetConfigs);
+    RESET_FUNC(eglGetDisplay);
+    RESET_FUNC(eglGetError);
+    RESET_FUNC(eglInitialize);
+    RESET_FUNC(eglMakeCurrent);
+    RESET_FUNC(eglSwapBuffers);
+    RESET_FUNC(eglTerminate);
+#endif /* !ANDROID_NDK */
+
+    RESET_FUNC(glBlendFunc);
+    RESET_FUNC(glClear);
+    RESET_FUNC(glClearColorx);
+    RESET_FUNC(glColor4x);
+    RESET_FUNC(glColorPointer);
+    RESET_FUNC(glDisable);
+    RESET_FUNC(glDisableClientState);
+    RESET_FUNC(glDrawArrays);
+    RESET_FUNC(glEnable);
+    RESET_FUNC(glEnableClientState);
+    RESET_FUNC(glFrustumx);
+    RESET_FUNC(glGetError);
+    RESET_FUNC(glLightxv);
+    RESET_FUNC(glLoadIdentity);
+    RESET_FUNC(glMaterialx);
+    RESET_FUNC(glMaterialxv);
+    RESET_FUNC(glMatrixMode);
+    RESET_FUNC(glMultMatrixx);
+    RESET_FUNC(glNormalPointer);
+    RESET_FUNC(glPopMatrix);
+    RESET_FUNC(glPushMatrix);
+    RESET_FUNC(glRotatex);
+    RESET_FUNC(glScalex);
+    RESET_FUNC(glShadeModel);
+    RESET_FUNC(glTranslatex);
+    RESET_FUNC(glVertexPointer);
+    RESET_FUNC(glViewport);
+
+#undef RESET_FUNC
+}
+#endif /* DISABLE_IMPORTGL */
+
+
 /* Imports function pointers to selected function calls in OpenGL ES Common
  * or Common Lite profile DLL or shared object. The function pointers are
  * stored as global symbols with equivalent function name but prefixed with
@@ -161,7 +215,10 @@ void importGLDeinit()
     if (sGLESDLL != NULL)
     {
         if (FreeLibrary(sGLESDLL) != 0)
+        {
             sGLESDLL = NULL;
+            clearImportedFunctions();
+        }
     }
 #endif
 
@@ -169,7 +226,10 @@ void importGLDeinit()
     if (sGLESSO != NULL)
     {
         if (dlclose(sGLESSO) == 0)
+        {
             sGLESSO = NULL;
+            clearImportedFunctions();
+        }
     }
 #endif
 #endif /* DISABLE_IMPORTGL */

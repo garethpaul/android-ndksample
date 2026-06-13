@@ -3,7 +3,8 @@
 ## 2026-06-13
 
 - Made portable GL loader cleanup guard and clear Windows/Linux dynamic-library
-  handles so failed or repeated teardown does not reuse invalid handles.
+  handles, then reset imported GL function pointers after successful close so
+  failed or repeated teardown does not reuse invalid state.
 - Added an SDK-free ELF runtime-shape contract for all seven historical ABI
   libraries, including architecture, SONAME, platform dependency, and exact JNI
   export verification.

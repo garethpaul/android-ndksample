@@ -12,6 +12,7 @@ ALLOCATION_FAILURE_PLAN="docs/plans/2026-06-12-ndk-allocation-failure-recovery.m
 SIZE_OVERFLOW_PLAN="docs/plans/2026-06-12-native-size-overflow-guards.md"
 ELF_CONTRACT_PLAN="docs/plans/2026-06-13-native-library-elf-contract.md"
 IMPORTGL_DEINIT_PLAN="docs/plans/2026-06-13-importgl-idempotent-deinit.md"
+IMPORTGL_POINTER_RESET_PLAN="docs/plans/2026-06-13-importgl-function-pointer-reset.md"
 
 expected_ci_workflow() {
   cat <<'EOF'
@@ -241,6 +242,32 @@ require_contains "jni/app-android.c" "appDeinit();" "nativeDone must deinitializ
 require_contains "jni/app-android.c" "importGLDeinit();" "nativeDone must release imported GL bindings."
 
 IMPORTGL_DEINIT=$(awk '/^void importGLDeinit\(\)/,/^}/' "$ROOT_DIR/jni/importgl.c")
+IMPORTGL_INIT=$(awk '/^int importGLInit\(\)/,/^}/' "$ROOT_DIR/jni/importgl.c")
+IMPORTGL_POINTER_RESET=$(awk '/^static void clearImportedFunctions\(void\)/,/^}/' "$ROOT_DIR/jni/importgl.c")
+IMPORTED_FUNCTIONS=$(printf '%s\n' "$IMPORTGL_INIT" | sed -n 's/^[[:space:]]*IMPORT_FUNC(\([A-Za-z0-9_]*\));[[:space:]]*$/\1/p' | sort)
+RESET_FUNCTIONS=$(printf '%s\n' "$IMPORTGL_POINTER_RESET" | sed -n 's/^[[:space:]]*RESET_FUNC(\([A-Za-z0-9_]*\));[[:space:]]*$/\1/p' | sort)
+
+if [ "$(printf '%s\n' "$IMPORTED_FUNCTIONS" | grep -c .)" -ne 40 ] || \
+   [ "$IMPORTED_FUNCTIONS" != "$RESET_FUNCTIONS" ]; then
+  printf '%s\n' "Portable GL loader cleanup must reset the exact 40-symbol import set." >&2
+  exit 1
+fi
+
+IMPORTGL_DEINIT_COMPACT=$(printf '%s\n' "$IMPORTGL_DEINIT" | tr -d '[:space:]')
+for importgl_pointer_reset_contract in \
+  "if(FreeLibrary(sGLESDLL)!=0){sGLESDLL=NULL;clearImportedFunctions();}" \
+  "if(dlclose(sGLESSO)==0){sGLESSO=NULL;clearImportedFunctions();}"; do
+  if ! printf '%s\n' "$IMPORTGL_DEINIT_COMPACT" | grep -Fq "$importgl_pointer_reset_contract"; then
+    printf '%s\n' "Imported GL function pointers must clear only after successful close: $importgl_pointer_reset_contract" >&2
+    exit 1
+  fi
+done
+
+if [ "$(printf '%s\n' "$IMPORTGL_DEINIT" | grep -Fc "clearImportedFunctions();")" -ne 2 ]; then
+  printf '%s\n' "Portable GL loader cleanup must clear imported functions once per platform close." >&2
+  exit 1
+fi
+
 for importgl_deinit_contract in \
   "if (sGLESDLL != NULL)" \
   "if (FreeLibrary(sGLESDLL) != 0)" \
@@ -278,10 +305,24 @@ if [ ! -f "$ROOT_DIR/$IMPORTGL_DEINIT_PLAN" ] || \
   exit 1
 fi
 
+if [ ! -f "$ROOT_DIR/$IMPORTGL_POINTER_RESET_PLAN" ] || \
+   ! grep -Fq "Status: Completed" "$ROOT_DIR/$IMPORTGL_POINTER_RESET_PLAN" || \
+   ! grep -Fq "Verification: Completed" "$ROOT_DIR/$IMPORTGL_POINTER_RESET_PLAN" || \
+   ! grep -Fq "Eight focused hostile mutations" "$ROOT_DIR/$IMPORTGL_POINTER_RESET_PLAN" || \
+   ! grep -Fq "sha256sum -c libs/SHA256SUMS" "$ROOT_DIR/$IMPORTGL_POINTER_RESET_PLAN"; then
+  printf '%s\n' "ImportGL function-pointer reset plan must record completed verification." >&2
+  exit 1
+fi
+
 for importgl_doc in AGENTS.md README.md SECURITY.md VISION.md CHANGES.md; do
   if ! tr '\n' ' ' < "$ROOT_DIR/$importgl_doc" | tr -s '[:space:]' ' ' | \
       grep -Fiq "portable GL loader cleanup"; then
     printf '%s\n' "$importgl_doc must document portable GL loader cleanup." >&2
+    exit 1
+  fi
+  if ! tr '\n' ' ' < "$ROOT_DIR/$importgl_doc" | tr -s '[:space:]' ' ' | \
+      grep -Fiq "imported GL function pointers"; then
+    printf '%s\n' "$importgl_doc must document imported GL function pointers." >&2
     exit 1
   fi
 done
