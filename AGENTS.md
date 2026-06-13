@@ -23,6 +23,8 @@ Legacy Android NDK sample for the San Angeles Observation OpenGL ES demo.
 - Tests: `make test`
 - Build: `make build`
 - If a command above skips because a platform toolchain is missing, verify on a machine with that SDK before claiming platform behavior is tested.
+- Portable GL loader cleanup must guard and clear Windows/Linux dynamic-library
+  handles so repeated teardown remains a no-op.
 
 ## Coding conventions
 

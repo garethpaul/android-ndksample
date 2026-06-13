@@ -11,6 +11,7 @@ CI_PLAN="docs/plans/2026-06-10-ci-baseline.md"
 ALLOCATION_FAILURE_PLAN="docs/plans/2026-06-12-ndk-allocation-failure-recovery.md"
 SIZE_OVERFLOW_PLAN="docs/plans/2026-06-12-native-size-overflow-guards.md"
 ELF_CONTRACT_PLAN="docs/plans/2026-06-13-native-library-elf-contract.md"
+IMPORTGL_DEINIT_PLAN="docs/plans/2026-06-13-importgl-idempotent-deinit.md"
 
 expected_ci_workflow() {
   cat <<'EOF'
@@ -238,6 +239,52 @@ require_contains "src/com/example/SanAngeles/DemoActivity.java" "nativeDone();" 
 require_contains "jni/app-android.c" "Java_com_example_SanAngeles_DemoRenderer_nativeDone" "JNI nativeDone binding must stay present."
 require_contains "jni/app-android.c" "appDeinit();" "nativeDone must deinitialize demo objects."
 require_contains "jni/app-android.c" "importGLDeinit();" "nativeDone must release imported GL bindings."
+
+IMPORTGL_DEINIT=$(awk '/^void importGLDeinit\(\)/,/^}/' "$ROOT_DIR/jni/importgl.c")
+for importgl_deinit_contract in \
+  "if (sGLESDLL != NULL)" \
+  "if (FreeLibrary(sGLESDLL) != 0)" \
+  "sGLESDLL = NULL;" \
+  "if (sGLESSO != NULL)" \
+  "if (dlclose(sGLESSO) == 0)" \
+  "sGLESSO = NULL;"; do
+  if ! printf '%s\n' "$IMPORTGL_DEINIT" | grep -Fq "$importgl_deinit_contract"; then
+    printf '%s\n' "Portable GL loader cleanup must keep contract: $importgl_deinit_contract" >&2
+    exit 1
+  fi
+done
+
+if ! printf '%s\n' "$IMPORTGL_DEINIT" | awk '
+  /if \(sGLESDLL != NULL\)/ { windows_guard = NR }
+  /if \(FreeLibrary\(sGLESDLL\) != 0\)/ { windows_close = NR }
+  /sGLESDLL = NULL;/ { windows_reset = NR }
+  /if \(sGLESSO != NULL\)/ { linux_guard = NR }
+  /if \(dlclose\(sGLESSO\) == 0\)/ { linux_close = NR }
+  /sGLESSO = NULL;/ { linux_reset = NR }
+  END {
+    exit !(windows_guard < windows_close && windows_close < windows_reset &&
+           linux_guard < linux_close && linux_close < linux_reset)
+  }
+'; then
+  printf '%s\n' "Portable GL handles must be guarded, closed, then cleared." >&2
+  exit 1
+fi
+
+if [ ! -f "$ROOT_DIR/$IMPORTGL_DEINIT_PLAN" ] || \
+   ! grep -Fq "Status: Completed" "$ROOT_DIR/$IMPORTGL_DEINIT_PLAN" || \
+   ! grep -Fq "make check" "$ROOT_DIR/$IMPORTGL_DEINIT_PLAN" || \
+   ! grep -Fq "hostile mutations" "$ROOT_DIR/$IMPORTGL_DEINIT_PLAN"; then
+  printf '%s\n' "ImportGL deinitialization plan must record completed verification." >&2
+  exit 1
+fi
+
+for importgl_doc in AGENTS.md README.md SECURITY.md VISION.md CHANGES.md; do
+  if ! tr '\n' ' ' < "$ROOT_DIR/$importgl_doc" | tr -s '[:space:]' ' ' | \
+      grep -Fiq "portable GL loader cleanup"; then
+    printf '%s\n' "$importgl_doc must document portable GL loader cleanup." >&2
+    exit 1
+  fi
+done
 require_contains "jni/app-android.c" "Java_com_example_SanAngeles_DemoRenderer_nativeInit( JNIEnv*  env, jclass  clazz )" "static nativeInit JNI signature must include jclass."
 require_contains "jni/app-android.c" "Java_com_example_SanAngeles_DemoRenderer_nativeResize( JNIEnv*  env, jclass  clazz, jint w, jint h )" "static nativeResize JNI signature must include jclass."
 require_contains "jni/app-android.c" "Java_com_example_SanAngeles_DemoRenderer_nativeDone( JNIEnv*  env, jclass  clazz )" "static nativeDone JNI signature must include jclass."

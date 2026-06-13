@@ -1,6 +1,6 @@
 # ImportGL Idempotent Deinitialization
 
-Status: Planned
+Status: Completed
 
 ## Priority
 
@@ -13,9 +13,9 @@ POSIX requires `dlclose()` to receive an open symbol-table handle.
 ## Requirements
 
 - **R1:** Close the Windows library only when `sGLESDLL` is non-null, then set
-  it to null.
+  it to null only when `FreeLibrary()` reports success.
 - **R2:** Close the Linux shared-object handle only when `sGLESSO` is non-null,
-  then set it to null.
+  then set it to null only when `dlclose()` reports success.
 - **R3:** Preserve `DISABLE_IMPORTGL`, import ordering, symbol loading, Android
   NDK linkage, JNI lifecycle, checked-in native libraries, and checksums.
 - **R4:** Add fail-closed source contracts, documentation, hostile mutations,
@@ -62,7 +62,16 @@ Document the portable loader teardown boundary and validation limitations.
 
 ## Verification
 
-Pending implementation and execution.
+- An isolated tracked repository copy passed `make check`, covering the SDK-free
+  provenance baseline, all seven checked-in ELF runtime-shape contracts, strict
+  C89 native size tests, and the guarded native-build skip because `ndk-build`
+  is unavailable. Legacy Android lint was skipped because no matching SDK is
+  configured.
+- Nine hostile mutations were rejected: both platform guards, close calls, and
+  resets; close/reset ordering; README guidance; and plan-status rollback.
+- Canonical and external-directory `make check` both passed against the exact
+  completed implementation with the same provenance, ELF, strict C89 size-test,
+  and guarded platform-toolchain boundaries.
 
 ## Sources
 
