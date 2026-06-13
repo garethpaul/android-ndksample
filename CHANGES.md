@@ -1,5 +1,11 @@
 # Changes
 
+## 2026-06-13
+
+- Added an SDK-free ELF runtime-shape contract for all seven historical ABI
+  libraries, including architecture, SONAME, platform dependency, and exact JNI
+  export verification.
+
 ## 2026-06-12
 
 - Guarded native geometry and allocation-size products against signed and
