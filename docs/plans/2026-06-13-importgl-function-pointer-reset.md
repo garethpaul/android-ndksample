@@ -1,6 +1,6 @@
 # Reset Imported GL Function Pointers
 
-Status: Planned
+Status: Completed
 
 ## Context
 
@@ -23,14 +23,35 @@ after cleanup or partial initialization failure.
 
 ## Verification
 
-- Canonical, external-directory, and isolated SDK/NDK-disabled `make check`.
-- Exact import/reset symbol-set comparison.
-- `sha256sum -c libs/SHA256SUMS`.
-- `sh -n scripts/check-baseline.sh` and `git diff --check`.
-- Focused hostile mutations for missing GL/EGL reset, additive reset, reset
-  before close success, missing helper call, stale plan status, and evidence.
-- Exact-base binary, artifact, and credential-shaped added-line inspection.
-- Exact-head hosted check and code-scanning snapshot after push.
+Verification: Completed
+
+- `make check` covers canonical, external-directory, and isolated
+  SDK/NDK-disabled execution.
+- The baseline compares the exact 40-name import and reset symbol sets.
+- `sha256sum -c libs/SHA256SUMS` verifies that all historical libraries remain
+  unchanged.
+- `sh -n scripts/check-baseline.sh` and `git diff --check` verify the shell and
+  patch shape.
+- `cc -std=c99 -Wall -Wextra -Werror -DLINUX` compiles `jni/importgl.c` with
+  temporary type-only GLES/EGL headers; this checks portable source syntax but
+  does not claim dynamic-loader runtime coverage.
+- Eight focused hostile mutations cover a missing GL reset, missing EGL reset,
+  additive reset, reset before close success, missing Windows helper call,
+  missing Linux helper call, stale plan status, and missing verification
+  evidence. Every mutation is rejected by the baseline checker.
+- Exact-base binary, artifact, and credential-shaped added-line inspection is
+  part of the pre-push audit.
+- Exact-head hosted checks and code-scanning state are recorded after push.
+
+## Work Completed
+
+- Added one teardown helper whose reset names must exactly match every
+  `IMPORT_FUNC(...)` name.
+- Called the helper only after `FreeLibrary` or `dlclose` reports success and
+  after the matching module handle is cleared.
+- Kept failed-close behavior unchanged so pointers remain available while the
+  module handle remains live.
+- Preserved the Android `DISABLE_IMPORTGL` path and all checked-in libraries.
 
 ## Scope Boundaries
 
