@@ -5,6 +5,8 @@
 - Made portable GL loader cleanup guard and clear Windows/Linux dynamic-library
   handles, then reset imported GL function pointers after successful close so
   failed or repeated teardown does not reuse invalid state.
+- Made portable GL partial symbol imports self-clean before failure returns for
+  Linux and Windows callers.
 - Added an SDK-free ELF runtime-shape contract for all seven historical ABI
   libraries, including architecture, SONAME, platform dependency, and exact JNI
   export verification.

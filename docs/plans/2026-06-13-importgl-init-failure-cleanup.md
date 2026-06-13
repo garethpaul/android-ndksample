@@ -1,6 +1,6 @@
 # ImportGL Initialization Failure Cleanup
 
-Status: Planned
+Status: Completed
 
 ## Context
 
@@ -42,7 +42,7 @@ contracts.
 
 ### U3: Document And Verify
 
-**Files:** `README.md`, `SECURITY.md`, `VISION.md`, `CHANGES.md`, this plan
+**Files:** `AGENTS.md`, `README.md`, `SECURITY.md`, `VISION.md`, `CHANGES.md`, this plan
 
 Document caller-independent initialization cleanup. Run strict portable syntax
 checks, existing host tests, hostile mutations, binary/checksum audits, and
@@ -79,4 +79,17 @@ exact-head hosted validation.
 
 ## Verification
 
-- Pending implementation.
+- Local and external-working-directory `make check` passed provenance,
+  lifecycle, exact seven-ABI ELF, strict native size, documentation, and
+  guarded toolchain-skip contracts.
+- Strict C99 compilation of `jni/importgl.c` passed with the existing temporary
+  type-only GLES/EGL headers.
+- Eight focused hostile mutations were rejected across cleanup removal,
+  unconditional or inverted cleanup, early or unreachable cleanup, successful
+  close pointer-reset weakening, guidance, and completed-plan status.
+- `sha256sum -c libs/SHA256SUMS` passed for all seven historical libraries; no
+  checked-in binary was rebuilt or modified.
+- Final diff, artifact/binary, conflict-marker, credential-pattern, and
+  whitespace inspection passed. Windows and dynamic Linux loader runtime
+  behavior were not exercised.
+- Hosted exact-head evidence remains pending push.

@@ -79,6 +79,8 @@ unavailable, cleans partial imports, and leaves rendering disabled.
 Portable GL loader cleanup guards Windows/Linux library handles and clears them
 only after a successful close, then resets imported GL function pointers so
 repeated teardown does not reuse stale code addresses.
+Portable GL partial symbol imports self-clean before failure returns, so Linux
+and Windows callers do not need a separate failure-only teardown path.
 Native surface dimensions are rejected when width or height is non-positive,
 preventing invalid projection aspect-ratio calculations.
 Native allocation failures release partial demo objects, disable rendering,

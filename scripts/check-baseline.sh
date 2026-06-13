@@ -13,6 +13,7 @@ SIZE_OVERFLOW_PLAN="docs/plans/2026-06-12-native-size-overflow-guards.md"
 ELF_CONTRACT_PLAN="docs/plans/2026-06-13-native-library-elf-contract.md"
 IMPORTGL_DEINIT_PLAN="docs/plans/2026-06-13-importgl-idempotent-deinit.md"
 IMPORTGL_POINTER_RESET_PLAN="docs/plans/2026-06-13-importgl-function-pointer-reset.md"
+IMPORTGL_INIT_FAILURE_PLAN="docs/plans/2026-06-13-importgl-init-failure-cleanup.md"
 
 expected_ci_workflow() {
   cat <<'EOF'
@@ -254,6 +255,16 @@ if [ "$(printf '%s\n' "$IMPORTED_FUNCTIONS" | grep -c .)" -ne 40 ] || \
 fi
 
 IMPORTGL_DEINIT_COMPACT=$(printf '%s\n' "$IMPORTGL_DEINIT" | tr -d '[:space:]')
+IMPORTGL_INIT_COMPACT=$(printf '%s\n' "$IMPORTGL_INIT" | tr -d '[:space:]')
+if ! printf '%s\n' "$IMPORTGL_INIT_COMPACT" | grep -Fq \
+    'IMPORT_FUNC(glViewport);if(!result)importGLDeinit();#endif/*DISABLE_IMPORTGL*/returnresult;'; then
+  printf '%s\n' "Portable GL initialization must self-clean partial imports before returning failure." >&2
+  exit 1
+fi
+if [ "$(printf '%s\n' "$IMPORTGL_INIT" | grep -Fc "importGLDeinit();")" -ne 1 ]; then
+  printf '%s\n' "Portable GL initialization must keep exactly one failure-conditioned cleanup call." >&2
+  exit 1
+fi
 for importgl_pointer_reset_contract in \
   "if(FreeLibrary(sGLESDLL)!=0){sGLESDLL=NULL;clearImportedFunctions();}" \
   "if(dlclose(sGLESSO)==0){sGLESSO=NULL;clearImportedFunctions();}"; do
@@ -313,6 +324,21 @@ if [ ! -f "$ROOT_DIR/$IMPORTGL_POINTER_RESET_PLAN" ] || \
   printf '%s\n' "ImportGL function-pointer reset plan must record completed verification." >&2
   exit 1
 fi
+
+if [ ! -f "$ROOT_DIR/$IMPORTGL_INIT_FAILURE_PLAN" ] || \
+   ! grep -Fq "Status: Completed" "$ROOT_DIR/$IMPORTGL_INIT_FAILURE_PLAN" || \
+   ! grep -Fq "make check" "$ROOT_DIR/$IMPORTGL_INIT_FAILURE_PLAN" || \
+   ! grep -Fq "hostile mutations" "$ROOT_DIR/$IMPORTGL_INIT_FAILURE_PLAN"; then
+  printf '%s\n' "ImportGL initialization failure plan must record completed verification." >&2
+  exit 1
+fi
+
+for init_cleanup_doc in AGENTS.md README.md SECURITY.md VISION.md CHANGES.md; do
+  if ! grep -Fq "partial symbol imports self-clean before failure returns" "$ROOT_DIR/$init_cleanup_doc"; then
+    printf '%s\n' "$init_cleanup_doc must document ImportGL initialization cleanup." >&2
+    exit 1
+  fi
+done
 
 for importgl_doc in AGENTS.md README.md SECURITY.md VISION.md CHANGES.md; do
   if ! tr '\n' ' ' < "$ROOT_DIR/$importgl_doc" | tr -s '[:space:]' ' ' | \

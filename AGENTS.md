@@ -26,6 +26,7 @@ Legacy Android NDK sample for the San Angeles Observation OpenGL ES demo.
 - Portable GL loader cleanup must guard and clear Windows/Linux dynamic-library
   handles, then reset imported GL function pointers only after a successful
   close so repeated teardown remains a no-op.
+- Portable GL partial symbol imports self-clean before failure returns.
 
 ## Coding conventions
 

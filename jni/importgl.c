@@ -202,6 +202,9 @@ int importGLInit()
     IMPORT_FUNC(glVertexPointer);
     IMPORT_FUNC(glViewport);
 
+    if (!result)
+        importGLDeinit();
+
 #endif /* DISABLE_IMPORTGL */
 
     return result;
