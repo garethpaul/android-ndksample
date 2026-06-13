@@ -44,6 +44,8 @@ Helpful reports include:
 - Portable GL loader cleanup guards and clears dynamic-library handles before
   repeated teardown, then resets imported GL function pointers only after a
   successful close; the Android build remains under `DISABLE_IMPORTGL`.
+- Portable GL partial symbol imports self-clean before failure returns while
+  preserving the close-success boundary for pointer invalidation.
 
 ## Mobile Privacy Notes
 

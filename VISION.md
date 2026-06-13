@@ -30,6 +30,7 @@ Priority:
 - Keep native initialization fail-closed when OpenGL imports are unavailable
 - Keep portable GL loader cleanup idempotent and imported GL function pointers
   invalidated only after successful teardown
+- Make portable GL partial symbol imports self-clean before failure returns
 - Keep surface dimensions valid before native projection and viewport math
 - Keep JNI source signatures aligned with Java static native declarations
 - Keep root lint, test, and guarded native build gates available
