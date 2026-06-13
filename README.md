@@ -24,6 +24,9 @@ NDK version and smoke-tested on an emulator or device.
 `libs/SHA256SUMS` records the current checksum for each checked-in runtime
 library. Entries must use lowercase SHA-256 digests and repo-relative paths for
 the expected `libs/<abi>/libsanangeles.so` runtime libraries.
+The ELF runtime-shape contract separately verifies each library's ABI class,
+machine, shared-object metadata, SONAME, Android/OpenGL dependencies, and exact
+JNI export set. This does not prove source-to-binary reproducibility.
 
 ## Verify
 
@@ -42,7 +45,8 @@ make build
 ```
 
 `make lint` runs the SDK-free provenance check and Android lint when the legacy
-SDK lint tool is available. `make test` reruns the SDK-free provenance check.
+SDK lint tool is available. `make test` reruns the SDK-free provenance check,
+validates the ELF runtime-shape contract, and runs strict host size tests.
 `make build` runs `ndk-build` when available and otherwise reports a clear skip.
 GitHub Actions runs `make check` on pushes and pull requests using the same
 guarded local targets.
@@ -59,6 +63,9 @@ This check validates the repository structure, required native source/license
 files, expected ABI runtime libraries, complete checksum manifest coverage for
 checked-in native libraries, checksum manifest path hygiene, and `obj/` ignore
 policy. It does not require an Android SDK or NDK.
+`scripts/check-native-library-elf.sh` additionally requires `readelf` or
+`llvm-readelf`; it validates the unchanged historical libraries without
+rebuilding them.
 The baseline also verifies that activity destruction calls the existing
 `nativeDone()` JNI cleanup path for demo object and imported GL teardown.
 JNI bindings use static native signatures that include the `jclass` argument
@@ -98,6 +105,7 @@ Do not replace checked-in `.so` files without documenting:
 - Resulting library checksums.
 - Runtime launch or smoke-test evidence.
 - Confirmation that every checked-in `.so` file is listed in `libs/SHA256SUMS`.
+- Confirmation that the ELF runtime-shape contract passes for every ABI.
 - Confirmation that Java lifecycle changes still invoke native cleanup.
 - Confirmation that rebuilt JNI bindings keep the static native signatures
   aligned with the Java declarations.
@@ -109,6 +117,8 @@ Do not replace checked-in `.so` files without documenting:
 
 `ndk-build` is not currently available in this environment, so binary
 regeneration is deferred.
+See `docs/plans/2026-06-13-native-library-elf-contract.md` for the completed
+ELF metadata and JNI export verification boundary.
 
 ## Modernization Notes
 

@@ -17,6 +17,7 @@ lint:
 
 test:
 	$(ROOT)scripts/check-baseline.sh
+	$(ROOT)scripts/check-native-library-elf.sh
 	$(ROOT)scripts/test-native-size-guards.sh
 
 build:

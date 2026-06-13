@@ -10,6 +10,7 @@ CODEOWNERS="$ROOT_DIR/.github/CODEOWNERS"
 CI_PLAN="docs/plans/2026-06-10-ci-baseline.md"
 ALLOCATION_FAILURE_PLAN="docs/plans/2026-06-12-ndk-allocation-failure-recovery.md"
 SIZE_OVERFLOW_PLAN="docs/plans/2026-06-12-native-size-overflow-guards.md"
+ELF_CONTRACT_PLAN="docs/plans/2026-06-13-native-library-elf-contract.md"
 
 expected_ci_workflow() {
   cat <<'EOF'
@@ -79,6 +80,7 @@ for path in \
   "$CI_PLAN" \
   "$ALLOCATION_FAILURE_PLAN" \
   "$SIZE_OVERFLOW_PLAN" \
+  "$ELF_CONTRACT_PLAN" \
   "AndroidManifest.xml" \
   "project.properties" \
   "jni/Android.mk" \
@@ -93,6 +95,7 @@ for path in \
   "libs/SHA256SUMS" \
   "scripts/test-native-size-guards.c" \
   "scripts/test-native-size-guards.sh" \
+  "scripts/check-native-library-elf.sh" \
   "lint.xml"; do
   require_file "$path" "Required baseline file is missing: $path"
 done
@@ -177,6 +180,41 @@ require_contains ".gitignore" "obj/" "Generated obj/ directory must be ignored."
 require_contains "README.md" "Ant/NDK Android project" "README must document the legacy Ant/NDK shape."
 require_contains "README.md" "libs/*/libsanangeles.so" "README must document checked-in runtime libraries."
 require_contains "README.md" "libs/SHA256SUMS" "README must document the native library checksum manifest."
+require_contains "Makefile" '$(ROOT)scripts/check-native-library-elf.sh' "make test must run the native library ELF verifier."
+require_contains "scripts/check-native-library-elf.sh" "verify_library arm64-v8a ELF64 AArch64" "ELF verifier must bind arm64-v8a to AArch64 ELF64."
+require_contains "scripts/check-native-library-elf.sh" "verify_library armeabi-v7a ELF32 ARM" "ELF verifier must bind armeabi-v7a to ARM ELF32."
+require_contains "scripts/check-native-library-elf.sh" "verify_library armeabi ELF32 ARM" "ELF verifier must bind armeabi to ARM ELF32."
+require_contains "scripts/check-native-library-elf.sh" "verify_library mips64 ELF64 \"MIPS R3000\"" "ELF verifier must bind mips64 to MIPS ELF64."
+require_contains "scripts/check-native-library-elf.sh" "verify_library mips ELF32 \"MIPS R3000\"" "ELF verifier must bind mips to MIPS ELF32."
+require_contains "scripts/check-native-library-elf.sh" "verify_library x86_64 ELF64 \"Advanced Micro Devices X86-64\"" "ELF verifier must bind x86_64 to ELF64."
+require_contains "scripts/check-native-library-elf.sh" "verify_library x86 ELF32 \"Intel 80386\"" "ELF verifier must bind x86 to ELF32."
+if [ "$(grep -c '^verify_library ' "$ROOT_DIR/scripts/check-native-library-elf.sh" || true)" -ne 7 ]; then
+  printf '%s\n' "ELF verifier must check exactly seven ABI libraries." >&2
+  exit 1
+fi
+require_contains "scripts/check-native-library-elf.sh" "actual_jni_symbols" "ELF verifier must compare the exact JNI export set."
+require_contains "scripts/check-native-library-elf.sh" "invalid_jni_symbols" "ELF verifier must reject invalid application JNI symbol metadata."
+require_contains "scripts/check-native-library-elf.sh" 'if [ "$actual_jni_symbols" != "$expected_jni_symbols" ]; then' "ELF verifier must reject additive or missing application JNI exports."
+require_contains "scripts/check-native-library-elf.sh" "Library soname: [libsanangeles.so]" "ELF verifier must require the sanangeles SONAME."
+require_contains "scripts/check-native-library-elf.sh" "libGLESv1_CM.so libdl.so liblog.so" "ELF verifier must require Android and OpenGL dependencies."
+if [ ! -x "$ROOT_DIR/scripts/check-native-library-elf.sh" ]; then
+  printf '%s\n' "Native library ELF verifier must remain executable." >&2
+  exit 1
+fi
+if [ ! -f "$ROOT_DIR/$ELF_CONTRACT_PLAN" ] || \
+   ! grep -Fq "Status: Completed" "$ROOT_DIR/$ELF_CONTRACT_PLAN" || \
+   ! grep -Fq "make check" "$ROOT_DIR/$ELF_CONTRACT_PLAN" || \
+   ! grep -Fq "hostile mutations" "$ROOT_DIR/$ELF_CONTRACT_PLAN"; then
+  printf '%s\n' "Native library ELF contract plan must record completed verification." >&2
+  exit 1
+fi
+for elf_contract_doc in README.md SECURITY.md CHANGES.md; do
+  if ! tr '\n' ' ' < "$ROOT_DIR/$elf_contract_doc" | tr -s '[:space:]' ' ' | \
+      grep -Fiq "ELF runtime-shape contract"; then
+    printf '%s\n' "$elf_contract_doc must document the ELF runtime-shape contract." >&2
+    exit 1
+  fi
+done
 require_contains "README.md" "Do not replace checked-in \`.so\` files" "README must document binary replacement rules."
 require_contains "README.md" "tools/bin/lint" "README must document the SDK-backed lint tool path."
 require_contains "README.md" 'lint" --exitcode .' "README must document lint failure propagation."

@@ -38,6 +38,9 @@ Helpful reports include:
   owner; repository rules should require that approval.
 - `check.yml` remains the only approved workflow until another workflow
   receives an explicit least-privilege security contract.
+- The ELF runtime-shape contract verifies every checked-in ABI library's
+  architecture, shared-object metadata, required platform dependencies, and
+  exact JNI export set independently from checksum integrity.
 
 ## Mobile Privacy Notes
 
