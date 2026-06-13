@@ -41,6 +41,8 @@ Helpful reports include:
 - The ELF runtime-shape contract verifies every checked-in ABI library's
   architecture, shared-object metadata, required platform dependencies, and
   exact JNI export set independently from checksum integrity.
+- Portable GL loader cleanup guards and clears dynamic-library handles before
+  repeated teardown; the Android build remains under `DISABLE_IMPORTGL`.
 
 ## Mobile Privacy Notes
 

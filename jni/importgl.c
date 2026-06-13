@@ -158,11 +158,19 @@ void importGLDeinit()
 {
 #ifndef DISABLE_IMPORTGL
 #ifdef WIN32
-    FreeLibrary(sGLESDLL);
+    if (sGLESDLL != NULL)
+    {
+        if (FreeLibrary(sGLESDLL) != 0)
+            sGLESDLL = NULL;
+    }
 #endif
 
 #ifdef LINUX
-    dlclose(sGLESSO);
+    if (sGLESSO != NULL)
+    {
+        if (dlclose(sGLESSO) == 0)
+            sGLESSO = NULL;
+    }
 #endif
 #endif /* DISABLE_IMPORTGL */
 }
