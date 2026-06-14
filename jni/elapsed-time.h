@@ -47,4 +47,33 @@ static long checkedElapsedMilliseconds(int64_t currentSeconds,
     return (long)elapsed;
 }
 
+static long checkedPausedMilliseconds(long accumulatedPaused,
+                                      long currentElapsed,
+                                      long stoppedElapsed)
+{
+    long pauseDelta;
+
+    if (accumulatedPaused < 0)
+        accumulatedPaused = 0;
+    if (currentElapsed < 0 || stoppedElapsed < 0 ||
+        currentElapsed <= stoppedElapsed)
+        return accumulatedPaused;
+
+    pauseDelta = currentElapsed - stoppedElapsed;
+    if (accumulatedPaused > LONG_MAX - pauseDelta)
+        return LONG_MAX;
+    return accumulatedPaused + pauseDelta;
+}
+
+static long checkedRenderMilliseconds(long elapsed, long paused)
+{
+    if (elapsed < 0)
+        elapsed = 0;
+    if (paused < 0)
+        paused = 0;
+    if (elapsed <= paused)
+        return 0;
+    return elapsed - paused;
+}
+
 #endif

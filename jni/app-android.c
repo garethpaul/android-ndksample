@@ -32,8 +32,7 @@ static int  sWindowWidth  = 320;
 static int  sWindowHeight = 480;
 static int  sNativeInitialized = 0;
 static int  sDemoStopped  = 0;
-static long sTimeOffset   = 0;
-static int  sTimeOffsetInit = 0;
+static long sPausedTime   = 0;
 static long sTimeStopped  = 0;
 static struct timeval sTimeOrigin;
 static int  sTimeOriginInit = 0;
@@ -94,8 +93,7 @@ Java_com_example_SanAngeles_DemoRenderer_nativeInit( JNIEnv*  env, jclass  clazz
     }
 
     sDemoStopped = 0;
-    sTimeOffset = 0;
-    sTimeOffsetInit = 0;
+    sPausedTime = 0;
     sTimeStopped = 0;
     gAppAlive = 1;
     appInit();
@@ -166,7 +164,10 @@ void _resume()
   /* we resumed the animation, so adjust the time offset
    * to take care of the pause interval. */
     sDemoStopped = 0;
-    sTimeOffset -= _getTime() - sTimeStopped;
+    sPausedTime = checkedPausedMilliseconds(
+            sPausedTime,
+            _getTime(),
+            sTimeStopped);
 }
 
 
@@ -205,14 +206,9 @@ Java_com_example_SanAngeles_DemoRenderer_nativeRender( JNIEnv*  env, jclass  cla
      *       on each iteration.
      */
     if (sDemoStopped) {
-        curTime = sTimeStopped + sTimeOffset;
+        curTime = checkedRenderMilliseconds(sTimeStopped, sPausedTime);
     } else {
-        curTime = _getTime() + sTimeOffset;
-        if (sTimeOffsetInit == 0) {
-            sTimeOffsetInit = 1;
-            sTimeOffset     = -curTime;
-            curTime         = 0;
-        }
+        curTime = checkedRenderMilliseconds(_getTime(), sPausedTime);
     }
 
     //__android_log_print(ANDROID_LOG_INFO, "SanAngeles", "curTime=%ld", curTime);

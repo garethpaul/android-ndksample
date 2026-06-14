@@ -76,6 +76,21 @@ int main(void)
                                       999999, 0, 0, 0) == LONG_MAX,
            "elapsed milliseconds saturate at long maximum");
 
+    expect(checkedPausedMilliseconds(100, 500, 300) == 300,
+           "pause duration accumulates normally");
+    expect(checkedPausedMilliseconds(300, 900, 700) == 500,
+           "repeated pause durations accumulate");
+    expect(checkedPausedMilliseconds(LONG_MAX - 5, 20, 10) == LONG_MAX,
+           "pause duration saturates at long maximum");
+    expect(checkedPausedMilliseconds(50, 100, 100) == 50,
+           "nonpositive pause duration preserves accumulation");
+    expect(checkedRenderMilliseconds(900, 500) == 400,
+           "render timeline excludes paused duration");
+    expect(checkedRenderMilliseconds(400, 500) == 0,
+           "render timeline clamps elapsed before paused duration");
+    expect(checkedRenderMilliseconds(LONG_MAX, LONG_MAX - 1) == 1,
+           "render timeline handles maximum values");
+
     if (failures != 0)
         return 1;
 

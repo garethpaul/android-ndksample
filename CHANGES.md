@@ -4,6 +4,8 @@
 
 - Replaced Android epoch-millisecond multiplication with validated relative
   elapsed timing that remains nondecreasing and saturates at `LONG_MAX`.
+- Replaced unchecked pause offsets with saturated pause accumulation and a
+  nonnegative checked render timeline.
 - Added portable native boundary coverage for microsecond borrowing, backward
   clocks, invalid fields, and compiler-width `LONG_MAX` saturation.
 
