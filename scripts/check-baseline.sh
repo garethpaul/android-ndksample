@@ -17,6 +17,7 @@ IMPORTGL_INIT_FAILURE_PLAN="docs/plans/2026-06-13-importgl-init-failure-cleanup.
 RELATIVE_TIME_PLAN="docs/plans/2026-06-14-android-ndk-relative-time.md"
 PAUSE_TIMELINE_PLAN="docs/plans/2026-06-14-android-ndk-pause-timeline-saturation.md"
 DEVICE_VERIFICATION_PLAN="docs/plans/2026-06-14-android-ndk-device-verification-checklist.md"
+RENDER_THREAD_TIMELINE_PLAN="docs/plans/2026-06-14-android-ndk-render-thread-timeline.md"
 
 expected_ci_workflow() {
   cat <<'EOF'
@@ -273,6 +274,8 @@ if ! grep -A6 "protected void onResume()" "$ROOT_DIR/src/com/example/SanAngeles/
 fi
 require_contains "src/com/example/SanAngeles/DemoActivity.java" "public void releaseNativeResources()" "GLSurfaceView must expose native resource cleanup."
 require_contains "src/com/example/SanAngeles/DemoActivity.java" "queueEvent(new Runnable()" "GLSurfaceView cleanup must run on the render thread."
+require_contains "src/com/example/SanAngeles/DemoActivity.java" "private void queueNativeTogglePauseResume()" "Touch timeline changes must use a render-thread helper."
+require_contains "src/com/example/SanAngeles/DemoActivity.java" "private void queueNativeResume()" "Lifecycle resume must use a render-thread helper."
 require_contains "src/com/example/SanAngeles/DemoActivity.java" "mRenderer.releaseNativeResources();" "Queued GL cleanup must delegate to the renderer owner."
 require_contains "src/com/example/SanAngeles/DemoActivity.java" "nativeDone();" "Renderer cleanup must call the native deinitializer."
 require_contains "jni/app-android.c" "Java_com_example_SanAngeles_DemoRenderer_nativeDone" "JNI nativeDone binding must stay present."
@@ -284,11 +287,33 @@ import pathlib
 import sys
 
 source = pathlib.Path(sys.argv[1]).read_text()
+touch = source[source.index("public boolean onTouchEvent") : source.index("public boolean performClick")]
 pause = source[source.index("public void onPause()") : source.index("public void onResume()")]
-required = ["nativePause();", "releaseNativeResources();", "super.onPause();"]
-positions = [pause.index(value) for value in required]
-if positions != sorted(positions):
+resume = source[source.index("public void onResume()") : source.index("private void queueNativeTogglePauseResume")]
+toggle_helper = source[source.index("private void queueNativeTogglePauseResume") : source.index("private void queueNativeResume")]
+resume_helper = source[source.index("private void queueNativeResume") : source.index("public void releaseNativeResources")]
+release = source[source.index("public void releaseNativeResources") : source.index("DemoRenderer mRenderer")]
+
+if "queueNativeTogglePauseResume();" not in touch or "nativeTogglePauseResume();" in touch:
+    raise SystemExit("Touch timeline changes must be queued on the render thread.")
+if "queueEvent(new Runnable()" not in toggle_helper or "nativeTogglePauseResume();" not in toggle_helper:
+    raise SystemExit("Queued touch timeline helper must invoke native toggle.")
+if "releaseNativeResources();" not in pause or "nativePause();" in pause:
+    raise SystemExit("Lifecycle pause must delegate native work to the render thread.")
+if pause.index("releaseNativeResources();") > pause.index("super.onPause();"):
     raise SystemExit("Native teardown must be queued before GLSurfaceView pause.")
+if "queueNativeResume();" not in resume or "nativeResume();" in resume:
+    raise SystemExit("Lifecycle resume must delegate native work to the render thread.")
+if resume.index("super.onResume();") > resume.index("queueNativeResume();"):
+    raise SystemExit("GLSurfaceView must resume before native resume is queued.")
+if "queueEvent(new Runnable()" not in resume_helper or "nativeResume();" not in resume_helper:
+    raise SystemExit("Queued resume helper must invoke native resume.")
+required = ["queueEvent(new Runnable()", "nativePause();", "mRenderer.releaseNativeResources();"]
+if any(value not in release for value in required):
+    raise SystemExit("Native pause and teardown must share an ordered render-thread operation.")
+positions = [release.index(value) for value in required]
+if positions != sorted(positions):
+    raise SystemExit("Native pause and teardown must share an ordered render-thread operation.")
 
 destroy = source[source.index("protected void onDestroy()") : source.index("private DemoGLSurfaceView mGLView")]
 if "releaseNativeResources" in destroy or "nativeDone" in destroy:
@@ -297,6 +322,18 @@ PY
 
 for gl_teardown_doc in AGENTS.md README.md SECURITY.md VISION.md CHANGES.md; do
   require_contains "$gl_teardown_doc" "Native OpenGL teardown is queued on the render thread before GLSurfaceView pauses." "$gl_teardown_doc must document GL-thread teardown ownership."
+done
+
+for render_thread_timeline_doc in README.md SECURITY.md VISION.md CHANGES.md; do
+  if ! tr '\n' ' ' < "$ROOT_DIR/$render_thread_timeline_doc" | tr -s '[:space:]' ' ' | \
+      grep -Fqi "Native timeline transitions share render-thread ownership with rendering and teardown"; then
+    printf '%s\n' "$render_thread_timeline_doc must document render-thread timeline ownership." >&2
+    exit 1
+  fi
+done
+require_file "$RENDER_THREAD_TIMELINE_PLAN" "Render-thread timeline ownership plan is required."
+for render_thread_plan_contract in "Status: Completed" "make check" "mutations"; do
+  require_contains "$RENDER_THREAD_TIMELINE_PLAN" "$render_thread_plan_contract" "Render-thread timeline plan must record completed verification."
 done
 require_file "docs/plans/2026-06-14-android-ndk-gl-thread-teardown.md" "GL-thread teardown plan is required."
 for gl_teardown_plan_contract in "Status: Completed" "make check" "hostile mutations"; do
