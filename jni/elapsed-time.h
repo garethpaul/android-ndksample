@@ -1,0 +1,50 @@
+#ifndef ELAPSED_TIME_H
+#define ELAPSED_TIME_H
+
+#include <limits.h>
+#include <stdint.h>
+
+static long checkedElapsedMilliseconds(int64_t currentSeconds,
+                                       int64_t currentMicroseconds,
+                                       int64_t originSeconds,
+                                       int64_t originMicroseconds,
+                                       long previousElapsed)
+{
+    int64_t secondDelta;
+    int64_t microsecondDelta;
+    int64_t millisecondRemainder;
+    int64_t elapsed;
+
+    if (previousElapsed < 0)
+        previousElapsed = 0;
+    if (currentSeconds < 0 || originSeconds < 0 ||
+        currentMicroseconds < 0 || currentMicroseconds >= 1000000 ||
+        originMicroseconds < 0 || originMicroseconds >= 1000000)
+        return previousElapsed;
+    if (currentSeconds < originSeconds ||
+        (currentSeconds == originSeconds &&
+         currentMicroseconds < originMicroseconds))
+        return previousElapsed;
+
+    secondDelta = currentSeconds - originSeconds;
+    microsecondDelta = currentMicroseconds - originMicroseconds;
+    if (microsecondDelta < 0)
+    {
+        --secondDelta;
+        microsecondDelta += 1000000;
+    }
+
+    if (secondDelta > LONG_MAX / 1000)
+        return LONG_MAX;
+    millisecondRemainder = microsecondDelta / 1000;
+    if (secondDelta == LONG_MAX / 1000 &&
+        millisecondRemainder > LONG_MAX % 1000)
+        return LONG_MAX;
+    elapsed = secondDelta * 1000 + millisecondRemainder;
+    if (elapsed < previousElapsed)
+        return previousElapsed;
+
+    return (long)elapsed;
+}
+
+#endif

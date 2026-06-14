@@ -46,6 +46,8 @@ Helpful reports include:
   successful close; the Android build remains under `DISABLE_IMPORTGL`.
 - Portable GL partial symbol imports self-clean before failure returns while
   preserving the close-success boundary for pointer invalidation.
+- Android native timing validates relative `timeval` deltas and saturates
+  unrepresentable elapsed milliseconds instead of overflowing signed `long`.
 
 ## Mobile Privacy Notes
 

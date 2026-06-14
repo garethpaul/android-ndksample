@@ -1,6 +1,6 @@
 # Android NDK Relative Time
 
-Status: In Progress
+Status: Completed
 
 ## Problem
 
@@ -67,3 +67,29 @@ behavior, and truthful completed verification evidence.
   Android permissions, dependencies, ABI selection, libraries, or workflows.
 - Do not claim emulator, device, GPU, or long-duration runtime verification.
 - Do not merge or close stacked pull requests without explicit authorization.
+
+## Work Completed
+
+- Added portable relative-time arithmetic that validates second/microsecond
+  fields, handles microsecond borrowing, preserves nondecreasing output, and
+  saturates before either multiplication or final addition can overflow.
+- Replaced Android epoch-millisecond multiplication with an initialization-
+  scoped `timeval` origin and retained elapsed value.
+- Extended the existing host-native harness without changing the public tick
+  type, desktop timing, renderer, JNI names, ABI list, or checked-in libraries.
+- Added dependency-free implementation, test, ordering, documentation, and
+  completed-plan contracts.
+
+## Verification Results
+
+- The portable timing suite passed under strict GCC and Clang C89 builds and a
+  Clang undefined-behavior sanitizer build.
+- Nine focused mutations were rejected: restored epoch multiplication,
+  reset-after-import ordering, missing microsecond borrow, inverted backward-
+  clock guard, lost nondecreasing clamp, inverted saturation, invalid
+  microsecond acceptance, removed boundary test, and stale plan status.
+- Bounded local and external-working-directory `make check`, exact diff,
+  native-artifact, conflict-marker, whitespace, and credential-shaped
+  added-line results are recorded from the final implementation audit.
+- Emulator, physical device, GPU, and long-duration behavior were not
+  exercised and remain explicit runtime boundaries.

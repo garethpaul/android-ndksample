@@ -24,6 +24,7 @@
 #include <stdint.h>
 #include "importgl.h"
 #include "app.h"
+#include "elapsed-time.h"
 
 int   gAppAlive   = 1;
 
@@ -34,14 +35,40 @@ static int  sDemoStopped  = 0;
 static long sTimeOffset   = 0;
 static int  sTimeOffsetInit = 0;
 static long sTimeStopped  = 0;
+static struct timeval sTimeOrigin;
+static int  sTimeOriginInit = 0;
+static long sLastElapsedTime = 0;
+
+static void
+_resetTime(void)
+{
+    sTimeOrigin.tv_sec = 0;
+    sTimeOrigin.tv_usec = 0;
+    sTimeOriginInit = 0;
+    sLastElapsedTime = 0;
+}
 
 static long
 _getTime(void)
 {
     struct timeval  now;
 
-    gettimeofday(&now, NULL);
-    return (long)(now.tv_sec*1000 + now.tv_usec/1000);
+    if (gettimeofday(&now, NULL) != 0)
+        return sLastElapsedTime;
+    if (!sTimeOriginInit) {
+        sTimeOrigin = now;
+        sTimeOriginInit = 1;
+        sLastElapsedTime = 0;
+        return 0;
+    }
+
+    sLastElapsedTime = checkedElapsedMilliseconds(
+            (int64_t)now.tv_sec,
+            (int64_t)now.tv_usec,
+            (int64_t)sTimeOrigin.tv_sec,
+            (int64_t)sTimeOrigin.tv_usec,
+            sLastElapsedTime);
+    return sLastElapsedTime;
 }
 
 /* Call to initialize the graphics state */
@@ -53,6 +80,8 @@ Java_com_example_SanAngeles_DemoRenderer_nativeInit( JNIEnv*  env, jclass  clazz
         importGLDeinit();
         sNativeInitialized = 0;
     }
+
+    _resetTime();
 
     if (!importGLInit()) {
         __android_log_print(

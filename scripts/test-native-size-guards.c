@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include "../jni/checked-size.h"
+#include "../jni/elapsed-time.h"
 
 static int failures = 0;
 
@@ -51,6 +52,29 @@ int main(void)
            "maximum allocation byte count accepted");
     expect(!checkedArrayByteSize(1, 1, 1, NULL),
            "missing byte output rejected");
+
+    expect(checkedElapsedMilliseconds(10, 750000, 10, 250000, 0) == 500,
+           "same-second elapsed milliseconds");
+    expect(checkedElapsedMilliseconds(11, 250000, 10, 750000, 0) == 500,
+           "microsecond borrow elapsed milliseconds");
+    expect(checkedElapsedMilliseconds(9, 999999, 10, 0, 321) == 321,
+           "backward clock preserves previous elapsed time");
+    expect(checkedElapsedMilliseconds(10, 249999, 10, 250000, 321) == 321,
+           "subsecond backward clock preserves previous elapsed time");
+    expect(checkedElapsedMilliseconds(10, 1000000, 10, 0, 321) == 321,
+           "invalid current microseconds preserve previous elapsed time");
+    expect(checkedElapsedMilliseconds(10, 0, 10, -1, 321) == 321,
+           "invalid origin microseconds preserve previous elapsed time");
+    expect(checkedElapsedMilliseconds(10, 500000, 10, 0, 700) == 700,
+           "elapsed time remains nondecreasing");
+    expect(checkedElapsedMilliseconds(10, 500000, 10, 0, -1) == 500,
+           "negative previous elapsed time is normalized");
+    expect(checkedElapsedMilliseconds((int64_t)(LONG_MAX / 1000) + 1,
+                                      0, 0, 0, 0) == LONG_MAX,
+           "elapsed seconds saturate at long maximum");
+    expect(checkedElapsedMilliseconds((int64_t)(LONG_MAX / 1000),
+                                      999999, 0, 0, 0) == LONG_MAX,
+           "elapsed milliseconds saturate at long maximum");
 
     if (failures != 0)
         return 1;
