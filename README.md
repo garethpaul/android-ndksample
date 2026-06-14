@@ -75,6 +75,8 @@ not corrupt the demo time offset.
 Android animation timing uses a validated relative `timeval` delta, avoiding
 32-bit `long` overflow from epoch-millisecond multiplication while preserving
 nondecreasing pause and resume timing.
+Pause duration accumulates with checked saturation, and render ticks clamp to
+a nonnegative timeline instead of relying on overflow-prone signed offsets.
 Native render calls are ignored after teardown, repeated cleanup is a no-op,
 and repeated native initialization releases the previous resource set first.
 Native initialization stops before demo setup when OpenGL ES imports are

@@ -15,6 +15,7 @@ IMPORTGL_DEINIT_PLAN="docs/plans/2026-06-13-importgl-idempotent-deinit.md"
 IMPORTGL_POINTER_RESET_PLAN="docs/plans/2026-06-13-importgl-function-pointer-reset.md"
 IMPORTGL_INIT_FAILURE_PLAN="docs/plans/2026-06-13-importgl-init-failure-cleanup.md"
 RELATIVE_TIME_PLAN="docs/plans/2026-06-14-android-ndk-relative-time.md"
+PAUSE_TIMELINE_PLAN="docs/plans/2026-06-14-android-ndk-pause-timeline-saturation.md"
 
 expected_ci_workflow() {
   cat <<'EOF'
@@ -389,7 +390,7 @@ if ! printf '%s\n' "$NATIVE_RENDER" | grep -Fq "sWindowWidth <= 0 || sWindowHeig
   printf '%s\n' "Native render must own the stored-dimension guard." >&2
   exit 1
 fi
-require_contains "jni/app-android.c" "sTimeOffsetInit = 0;" "Native initialization must reset timing state."
+require_contains "jni/app-android.c" "sPausedTime = 0;" "Native initialization must reset paused timing state."
 if grep -Fq "    importGLInit();" "$ROOT_DIR/jni/app-android.c"; then
   printf '%s\n' "Native initialization must not ignore the OpenGL import result." >&2
   exit 1
@@ -409,7 +410,7 @@ done
 
 if ! awk '
   /if \(!importGLInit\(\)\)/ && !guard_line { guard_line = NR }
-  $0 == "    sTimeOffsetInit = 0;" { reset_line = NR }
+  $0 == "    sPausedTime = 0;" { reset_line = NR }
   /appInit\(\);/ && !app_line { app_line = NR }
   END { exit !(guard_line && reset_line && app_line && guard_line < reset_line && reset_line < app_line) }
 ' "$ROOT_DIR/jni/app-android.c"; then
@@ -617,6 +618,34 @@ done
 require_contains "$RELATIVE_TIME_PLAN" "Status: Completed" "Android NDK relative-time plan must record completed status."
 require_contains "$RELATIVE_TIME_PLAN" "make check" "Android NDK relative-time plan must document make check verification."
 require_contains "$RELATIVE_TIME_PLAN" "focused mutations" "Android NDK relative-time plan must document mutation verification."
+require_contains "jni/elapsed-time.h" "checkedPausedMilliseconds" "Android pause timing must use checked accumulation."
+require_contains "jni/elapsed-time.h" "accumulatedPaused > LONG_MAX - pauseDelta" "Android pause timing must saturate before addition overflow."
+require_contains "jni/elapsed-time.h" "checkedRenderMilliseconds" "Android render timing must use checked paused-time subtraction."
+require_contains "jni/elapsed-time.h" "elapsed <= paused" "Android render timing must clamp invalid negative timelines."
+require_contains "jni/app-android.c" "static long sPausedTime" "Android JNI timing must retain accumulated paused duration."
+require_contains "jni/app-android.c" "sPausedTime = checkedPausedMilliseconds(" "Android resume must accumulate pauses through the checked helper."
+require_contains "jni/app-android.c" "curTime = checkedRenderMilliseconds(sTimeStopped, sPausedTime);" "Paused frames must use the checked timeline helper."
+require_contains "jni/app-android.c" "curTime = checkedRenderMilliseconds(_getTime(), sPausedTime);" "Active frames must use the checked timeline helper."
+if grep -Eq 'sTimeOffset|_getTime\(\)[[:space:]]*-[[:space:]]*sTimeStopped|sTimeStopped[[:space:]]*\+[[:space:]]*sTimeOffset' "$ROOT_DIR/jni/app-android.c"; then
+  printf '%s\n' "Android JNI pause timing must not use unchecked offset arithmetic." >&2
+  exit 1
+fi
+for pause_timeline_test in \
+  "pause duration accumulates normally" \
+  "repeated pause durations accumulate" \
+  "pause duration saturates at long maximum" \
+  "nonpositive pause duration preserves accumulation" \
+  "render timeline excludes paused duration" \
+  "render timeline clamps elapsed before paused duration" \
+  "render timeline handles maximum values"; do
+  require_contains "scripts/test-native-size-guards.c" "$pause_timeline_test" "Native timing tests must cover: $pause_timeline_test"
+done
+require_contains "$PAUSE_TIMELINE_PLAN" "Status: Completed" "Android NDK pause-timeline plan must record completed status."
+require_contains "$PAUSE_TIMELINE_PLAN" "make check" "Android NDK pause-timeline plan must document make check verification."
+require_contains "$PAUSE_TIMELINE_PLAN" "hostile mutations" "Android NDK pause-timeline plan must document mutation verification."
+require_contains "README.md" "Pause duration accumulates with checked saturation" "README must document checked pause accumulation."
+require_contains "SECURITY.md" "Android pause timing uses saturated accumulation" "Security guidance must document pause-time saturation."
+require_contains "CHANGES.md" "unchecked pause offsets with saturated pause accumulation" "Changelog must document checked pause timing."
 require_contains "jni/checked-size.h" "(unsigned long)count > (unsigned long)((size_t)-1)" "Checked allocation helper must reject counts wider than size_t."
 require_contains "jni/checked-size.h" "elementCount > (size_t)-1 / (size_t)components" "Checked allocation helper must reject component-count overflow."
 require_contains "jni/checked-size.h" "elementCount > (size_t)-1 / componentSize" "Checked allocation helper must reject byte-size overflow."

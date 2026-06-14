@@ -1,6 +1,6 @@
 # Android NDK Pause Timeline Saturation
 
-Status: Planned
+Status: Completed
 
 ## Problem
 
@@ -57,9 +57,14 @@ documentation, and truthful verification.
 
 ## Verification
 
-- Run strict GCC, Clang, and UBSan native tests through bounded local and
-  external-directory `make check` gates.
-- Run hostile mutations for unchecked arithmetic, missing clamps, saturation,
-  resets, tests, documentation, and plan status.
-- Audit exact diff, native artifacts, whitespace, conflict markers, and
-  credential-shaped additions.
+- Strict GCC, Clang, and UBSan native tests passed through bounded local and
+  external-directory `make check` gates. Seven-ABI ELF contracts also passed;
+  Android lint and `ndk-build` truthfully skipped because those tools are not
+  configured.
+- Eight hostile mutations were rejected: removed saturation, removed render
+  clamp, unchecked resume, unchecked render, missing reset, removed boundary
+  test, removed security guidance, and reopened plan status.
+- Final verification includes exact diff, native artifacts, whitespace,
+  conflict markers, and credential-shaped added-line audits.
+- Emulator, physical-device, GPU, and long-duration pause behavior were not
+  exercised.

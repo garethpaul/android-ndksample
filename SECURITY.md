@@ -48,6 +48,8 @@ Helpful reports include:
   preserving the close-success boundary for pointer invalidation.
 - Android native timing validates relative `timeval` deltas and saturates
   unrepresentable elapsed milliseconds instead of overflowing signed `long`.
+- Android pause timing uses saturated accumulation and nonnegative render-time
+  derivation so repeated or extreme pauses cannot trigger signed overflow.
 
 ## Mobile Privacy Notes
 
