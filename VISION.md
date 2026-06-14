@@ -36,6 +36,8 @@ Priority:
 - Keep JNI source signatures aligned with Java static native declarations
 - Keep root lint, test, and guarded native build gates available
 - Keep the SDK-free `make check` baseline running in GitHub Actions
+- Keep exact-commit Android NDK device verification matrix evidence separate
+  from portable checks, with unexecuted GPU and lifecycle rows explicit
 - Avoid build changes that break older NDK sample behavior silently
 
 Next priorities:
@@ -44,6 +46,8 @@ Next priorities:
 - Verify or regenerate native libraries with a documented NDK version
 - Modernize project structure only after preserving a known-good baseline
 - Add smoke-test or manual launch verification notes
+- Execute the device verification matrix on an authorized emulator or device
+  with privacy-safe GPU and lifecycle evidence
 
 Contribution rules:
 

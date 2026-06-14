@@ -53,6 +53,11 @@ guarded local targets.
 Hosted CI explicitly disables ambient SDK and NDK discovery; local native
 rebuilds require deliberate `ANDROID_HOME` and `NDK_BUILD` configuration.
 
+Use [`DEVICE_VERIFICATION.md`](DEVICE_VERIFICATION.md) for the exact-commit
+Android, GPU, ABI, and lifecycle matrix. It covers launch and rendering,
+surface resize, pause/resume, context loss, render-thread teardown, process
+recreation, privacy-safe evidence, and explicit unexecuted rows.
+
 or run the underlying script directly:
 
 ```sh
@@ -130,6 +135,8 @@ Do not replace checked-in `.so` files without documenting:
 regeneration is deferred.
 See `docs/plans/2026-06-13-native-library-elf-contract.md` for the completed
 ELF metadata and JNI export verification boundary.
+See `docs/plans/2026-06-14-android-ndk-device-verification-checklist.md` for the
+device evidence matrix and runtime non-claims.
 
 ## Modernization Notes
 

@@ -1,6 +1,6 @@
 # Android NDK Device Verification Checklist
 
-Status: In Progress
+Status: Completed
 
 ## Problem
 
@@ -29,4 +29,9 @@ evidence for the exact implementation commit.
 
 ## Verification
 
-- Pending implementation and bounded repository validation.
+- `sh -n scripts/check-baseline.sh` and the focused baseline checker passed.
+- `make check` passed from the repository and from an external working
+  directory for all portable contracts available in this Linux environment.
+- Twelve hostile mutations were rejected by the checklist's static contracts.
+- No Android SDK, NDK rebuild, emulator, GPU, physical device, or live OpenGL ES scenario was executed;
+  every hardware-dependent matrix row remains `not run`.
