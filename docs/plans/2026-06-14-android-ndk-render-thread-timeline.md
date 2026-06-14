@@ -1,6 +1,6 @@
 # Android NDK Render-Thread Timeline Ownership
 
-Status: Planned
+Status: Completed
 
 ## Problem
 
@@ -58,13 +58,16 @@ thread ownership.
 
 ## Verification
 
-To be recorded after implementation:
-
-- POSIX shell syntax, portable source contracts, seven-ABI ELF verification,
-  and native size-guard tests.
-- Repository-root and external-directory `make check`.
-- Isolated touch, pause, ordering, teardown, resume, direct-call,
-  documentation, and completed-plan mutations.
+- `sh -n scripts/check-baseline.sh`, portable source contracts, strict GCC,
+  Clang, and UBSan native size-guard tests, seven-ABI ELF verification, and
+  `libs/SHA256SUMS` validation passed.
+- Repository-root and external-directory `make check` passed with Android SDK
+  and NDK discovery disabled, matching the hosted portable gate. Legacy Android
+  lint and native rebuild were truthfully skipped because those toolchains are
+  unavailable.
+- Eight isolated mutations were rejected for touch queueing, lifecycle pause,
+  pause-before-teardown ordering, render-thread teardown, lifecycle resume,
+  direct native calls, documentation, and completed plan evidence.
 
 ## Scope Boundaries
 

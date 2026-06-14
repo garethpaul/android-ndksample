@@ -2,6 +2,8 @@
 
 ## 2026-06-14
 
+- Native timeline transitions share render-thread ownership with rendering and
+  teardown, removing UI-thread races over native pause state.
 - Added an exact-commit Android NDK device verification matrix for rendering,
   surface changes, lifecycle timing, context loss, render-thread teardown,
   process recreation, ABI identity, and privacy-safe evidence, with every runtime row explicitly unexecuted.

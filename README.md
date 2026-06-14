@@ -85,6 +85,8 @@ a nonnegative timeline instead of relying on overflow-prone signed offsets.
 Native render calls are ignored after teardown, repeated cleanup is a no-op,
 and repeated native initialization releases the previous resource set first.
 Native OpenGL teardown is queued on the render thread before GLSurfaceView pauses.
+Native timeline transitions share render-thread ownership with rendering and
+teardown, avoiding unsynchronized UI-thread access to native timing state.
 Native initialization stops before demo setup when OpenGL ES imports are
 unavailable, cleans partial imports, and leaves rendering disabled.
 Portable GL loader cleanup guards Windows/Linux library handles and clears them
