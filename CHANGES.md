@@ -2,6 +2,7 @@
 
 ## 2026-06-14
 
+- Native OpenGL teardown is queued on the render thread before GLSurfaceView pauses.
 - Replaced Android epoch-millisecond multiplication with validated relative
   elapsed timing that remains nondecreasing and saturates at `LONG_MAX`.
 - Replaced unchecked pause offsets with saturated pause accumulation and a

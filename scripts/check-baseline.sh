@@ -236,13 +236,37 @@ if ! grep -A6 "protected void onResume()" "$ROOT_DIR/src/com/example/SanAngeles/
   printf '%s\n' "Activity resume path must guard missing GLSurfaceView instances." >&2
   exit 1
 fi
-require_contains "src/com/example/SanAngeles/DemoActivity.java" "protected void onDestroy()" "Activity must release native resources during destruction."
-require_contains "src/com/example/SanAngeles/DemoActivity.java" "mGLView.releaseNativeResources();" "Activity destroy path must release GLSurfaceView native resources."
 require_contains "src/com/example/SanAngeles/DemoActivity.java" "public void releaseNativeResources()" "GLSurfaceView must expose native resource cleanup."
+require_contains "src/com/example/SanAngeles/DemoActivity.java" "queueEvent(new Runnable()" "GLSurfaceView cleanup must run on the render thread."
+require_contains "src/com/example/SanAngeles/DemoActivity.java" "mRenderer.releaseNativeResources();" "Queued GL cleanup must delegate to the renderer owner."
 require_contains "src/com/example/SanAngeles/DemoActivity.java" "nativeDone();" "Renderer cleanup must call the native deinitializer."
 require_contains "jni/app-android.c" "Java_com_example_SanAngeles_DemoRenderer_nativeDone" "JNI nativeDone binding must stay present."
 require_contains "jni/app-android.c" "appDeinit();" "nativeDone must deinitialize demo objects."
 require_contains "jni/app-android.c" "importGLDeinit();" "nativeDone must release imported GL bindings."
+
+python3 - "$ROOT_DIR/src/com/example/SanAngeles/DemoActivity.java" <<'PY'
+import pathlib
+import sys
+
+source = pathlib.Path(sys.argv[1]).read_text()
+pause = source[source.index("public void onPause()") : source.index("public void onResume()")]
+required = ["nativePause();", "releaseNativeResources();", "super.onPause();"]
+positions = [pause.index(value) for value in required]
+if positions != sorted(positions):
+    raise SystemExit("Native teardown must be queued before GLSurfaceView pause.")
+
+destroy = source[source.index("protected void onDestroy()") : source.index("private DemoGLSurfaceView mGLView")]
+if "releaseNativeResources" in destroy or "nativeDone" in destroy:
+    raise SystemExit("Activity destruction must not run GL cleanup on the UI thread.")
+PY
+
+for gl_teardown_doc in AGENTS.md README.md SECURITY.md VISION.md CHANGES.md; do
+  require_contains "$gl_teardown_doc" "Native OpenGL teardown is queued on the render thread before GLSurfaceView pauses." "$gl_teardown_doc must document GL-thread teardown ownership."
+done
+require_file "docs/plans/2026-06-14-android-ndk-gl-thread-teardown.md" "GL-thread teardown plan is required."
+for gl_teardown_plan_contract in "Status: Completed" "make check" "hostile mutations"; do
+  require_contains "docs/plans/2026-06-14-android-ndk-gl-thread-teardown.md" "$gl_teardown_plan_contract" "GL-thread teardown plan must record completed verification."
+done
 
 IMPORTGL_DEINIT=$(awk '/^void importGLDeinit\(\)/,/^}/' "$ROOT_DIR/jni/importgl.c")
 IMPORTGL_INIT=$(awk '/^int importGLInit\(\)/,/^}/' "$ROOT_DIR/jni/importgl.c")
