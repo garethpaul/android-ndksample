@@ -520,8 +520,40 @@ if [ ! -f "$CODEOWNERS" ] ||
   exit 1
 fi
 
-require_contains "Makefile" 'ROOT := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))' "Makefile must resolve repository paths from its own location."
-require_contains "Makefile" 'ANDROID_SDK := $(if $(ANDROID_HOME),$(ANDROID_HOME),$(ANDROID_SDK_ROOT))' "Makefile must accept either Android SDK environment variable."
+for make_contract in \
+  'override ROOT := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))' \
+  'ANDROID_HOME ?=' \
+  'ANDROID_SDK_ROOT ?=' \
+  'ANDROID_SDK := $(if $(ANDROID_HOME),$(ANDROID_HOME),$(ANDROID_SDK_ROOT))' \
+  'ANDROID_LINT_TOOL ?= $(ANDROID_SDK)/tools/bin/lint' \
+  'NDK_BUILD ?= ndk-build'; do
+  if ! grep -Fxq "$make_contract" "$ROOT_DIR/Makefile"; then
+    printf '%s\n' "Makefile must keep exact contract: $make_contract" >&2
+    exit 1
+  fi
+done
+
+if [ "$(grep -Fc '$(ROOT)scripts/check-baseline.sh' "$ROOT_DIR/Makefile")" -ne 2 ] || \
+   [ "$(grep -Fc '$(ROOT)scripts/check-native-library-elf.sh' "$ROOT_DIR/Makefile")" -ne 1 ] || \
+   [ "$(grep -Fc '$(ROOT)scripts/test-native-size-guards.sh' "$ROOT_DIR/Makefile")" -ne 1 ]; then
+  printf '%s\n' "All baseline, ELF, and native-size commands must use the protected root." >&2
+  exit 1
+fi
+
+if [ "$(grep -Fc 'cd $(ROOT) && ANDROID_HOME="$(ANDROID_SDK)" ANDROID_SDK_ROOT="$(ANDROID_SDK)" "$(ANDROID_LINT_TOOL)" --exitcode .; \' "$ROOT_DIR/Makefile")" -ne 1 ]; then
+  printf '%s\n' "Legacy Android lint must preserve its complete rooted command." >&2
+  exit 1
+fi
+
+if [ "$(grep -Fc 'cd $(ROOT) && "$(NDK_BUILD)"; \' "$ROOT_DIR/Makefile")" -ne 1 ]; then
+  printf '%s\n' "Legacy NDK build must preserve its complete rooted command." >&2
+  exit 1
+fi
+
+if ! grep -Fxq "Status: Completed" "$ROOT_DIR/docs/plans/2026-06-14-android-ndk-make-root-override-protection.md"; then
+  printf '%s\n' "Android NDK Make root protection plan must record completed status." >&2
+  exit 1
+fi
 
 if grep -Fq "/home/gjones" "$ROOT_DIR/Makefile"; then
   printf '%s\n' "Makefile must not embed a maintainer-specific Android SDK path." >&2
