@@ -16,6 +16,7 @@ IMPORTGL_POINTER_RESET_PLAN="docs/plans/2026-06-13-importgl-function-pointer-res
 IMPORTGL_INIT_FAILURE_PLAN="docs/plans/2026-06-13-importgl-init-failure-cleanup.md"
 RELATIVE_TIME_PLAN="docs/plans/2026-06-14-android-ndk-relative-time.md"
 PAUSE_TIMELINE_PLAN="docs/plans/2026-06-14-android-ndk-pause-timeline-saturation.md"
+DEVICE_VERIFICATION_PLAN="docs/plans/2026-06-14-android-ndk-device-verification-checklist.md"
 
 expected_ci_workflow() {
   cat <<'EOF'
@@ -101,8 +102,42 @@ for path in \
   "scripts/test-native-size-guards.c" \
   "scripts/test-native-size-guards.sh" \
   "scripts/check-native-library-elf.sh" \
-  "lint.xml"; do
+  "lint.xml" \
+  "DEVICE_VERIFICATION.md" \
+  "$DEVICE_VERIFICATION_PLAN"; do
   require_file "$path" "Required baseline file is missing: $path"
+done
+
+for device_contract in \
+  'commit SHA and pull request' \
+  'Android API level, ABI, GPU model' \
+  'First launch' \
+  'Surface resize' \
+  'Background/foreground' \
+  'Context loss' \
+  'Rapid pause/resume' \
+  'Process recreation' \
+  'Render-thread teardown' \
+  'Do not convert `not run` into passing evidence.' \
+  'device serials, account names, notifications' \
+  'every Android, GPU, and lifecycle row as unexecuted'; do
+  require_contains "DEVICE_VERIFICATION.md" "$device_contract" "Android NDK device checklist must keep contract: $device_contract"
+done
+
+if ! grep -Fq 'DEVICE_VERIFICATION.md' "$ROOT_DIR/README.md" || \
+   ! grep -Fq 'explicit unexecuted rows' "$ROOT_DIR/README.md" || \
+   ! grep -Fq 'Android NDK device verification matrix' "$ROOT_DIR/VISION.md" || \
+   ! grep -Fq 'every runtime row explicitly unexecuted' "$ROOT_DIR/CHANGES.md"; then
+  printf '%s\n' 'Repository guidance must document the unexecuted Android NDK device matrix.' >&2
+  exit 1
+fi
+
+for plan_contract in \
+  'Status: Completed' \
+  'make check' \
+  'hostile mutations' \
+  'No Android SDK, NDK rebuild, emulator, GPU, physical device, or live OpenGL ES scenario was executed'; do
+  require_contains "$DEVICE_VERIFICATION_PLAN" "$plan_contract" "Android NDK device plan must keep completion evidence: $plan_contract"
 done
 
 expected_abi_count=0

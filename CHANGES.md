@@ -2,6 +2,9 @@
 
 ## 2026-06-14
 
+- Added an exact-commit Android NDK device verification matrix for rendering,
+  surface changes, lifecycle timing, context loss, render-thread teardown,
+  process recreation, ABI identity, and privacy-safe evidence, with every runtime row explicitly unexecuted.
 - Native OpenGL teardown is queued on the render thread before GLSurfaceView pauses.
 - Replaced Android epoch-millisecond multiplication with validated relative
   elapsed timing that remains nondecreasing and saturates at `LONG_MAX`.
