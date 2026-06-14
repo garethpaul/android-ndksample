@@ -14,6 +14,7 @@ ELF_CONTRACT_PLAN="docs/plans/2026-06-13-native-library-elf-contract.md"
 IMPORTGL_DEINIT_PLAN="docs/plans/2026-06-13-importgl-idempotent-deinit.md"
 IMPORTGL_POINTER_RESET_PLAN="docs/plans/2026-06-13-importgl-function-pointer-reset.md"
 IMPORTGL_INIT_FAILURE_PLAN="docs/plans/2026-06-13-importgl-init-failure-cleanup.md"
+RELATIVE_TIME_PLAN="docs/plans/2026-06-14-android-ndk-relative-time.md"
 
 expected_ci_workflow() {
   cat <<'EOF'
@@ -67,7 +68,7 @@ require_contains() {
   pattern=$2
   message=$3
 
-  if ! grep -Fq "$pattern" "$ROOT_DIR/$path"; then
+  if ! grep -Fq -- "$pattern" "$ROOT_DIR/$path"; then
     printf '%s\n' "$message" >&2
     exit 1
   fi
@@ -578,6 +579,44 @@ require_contains "$SIZE_OVERFLOW_PLAN" 'pull-request baseline run `27403851128` 
 require_contains "$SIZE_OVERFLOW_PLAN" "zero open code-scanning alerts" "Native size overflow plan must record the PR-ref alert result."
 
 require_contains "jni/checked-size.h" "left > LONG_MAX / right" "Checked product helper must reject signed long overflow before multiplication."
+require_contains "jni/elapsed-time.h" "checkedElapsedMilliseconds" "Android elapsed timing must use the portable checked helper."
+require_contains "jni/elapsed-time.h" "secondDelta > LONG_MAX / 1000" "Android elapsed timing must saturate oversized second deltas."
+require_contains "jni/elapsed-time.h" "millisecondRemainder > LONG_MAX % 1000" "Android elapsed timing must reject final addition overflow."
+require_contains "jni/elapsed-time.h" "elapsed < previousElapsed" "Android elapsed timing must remain nondecreasing."
+require_contains "jni/elapsed-time.h" "currentMicroseconds >= 1000000" "Android elapsed timing must reject invalid current microseconds."
+require_contains "jni/elapsed-time.h" "originMicroseconds >= 1000000" "Android elapsed timing must reject invalid origin microseconds."
+require_contains "jni/elapsed-time.h" "currentSeconds < originSeconds" "Android elapsed timing must reject backward clock samples."
+require_contains "jni/elapsed-time.h" "microsecondDelta < 0" "Android elapsed timing must detect microsecond borrowing."
+require_contains "jni/elapsed-time.h" "--secondDelta;" "Android elapsed timing must borrow one second for negative microsecond deltas."
+require_contains "jni/elapsed-time.h" "microsecondDelta += 1000000;" "Android elapsed timing must normalize borrowed microseconds."
+require_contains "jni/app-android.c" '#include "elapsed-time.h"' "Android JNI timing must include the elapsed-time helper."
+require_contains "jni/app-android.c" "static struct timeval sTimeOrigin;" "Android JNI timing must retain a relative time origin."
+require_contains "jni/app-android.c" "_resetTime();" "Android JNI initialization must reset relative timing state."
+require_contains "jni/app-android.c" "sLastElapsedTime = checkedElapsedMilliseconds(" "Android JNI timing must use checked relative elapsed milliseconds."
+relative_reset_line=$(printf '%s\n' "$NATIVE_INIT" | grep -nF "_resetTime();" | cut -d: -f1)
+import_init_line=$(printf '%s\n' "$NATIVE_INIT" | grep -nF "if (!importGLInit())" | cut -d: -f1)
+if [ -z "$relative_reset_line" ] || [ -z "$import_init_line" ] || \
+   [ "$relative_reset_line" -ge "$import_init_line" ]; then
+  printf '%s\n' "Android JNI timing must reset before each OpenGL import initialization attempt." >&2
+  exit 1
+fi
+if grep -Eq 'tv_sec[[:space:]]*\*[[:space:]]*1000|1000[[:space:]]*\*[[:space:]]*now\.tv_sec' "$ROOT_DIR/jni/app-android.c"; then
+  printf '%s\n' "Android JNI timing must not multiply epoch seconds into long milliseconds." >&2
+  exit 1
+fi
+for relative_time_test in \
+  "same-second elapsed milliseconds" \
+  "microsecond borrow elapsed milliseconds" \
+  "backward clock preserves previous elapsed time" \
+  "invalid current microseconds preserve previous elapsed time" \
+  "elapsed time remains nondecreasing" \
+  "elapsed seconds saturate at long maximum" \
+  "elapsed milliseconds saturate at long maximum"; do
+  require_contains "scripts/test-native-size-guards.c" "$relative_time_test" "Native timing tests must cover: $relative_time_test"
+done
+require_contains "$RELATIVE_TIME_PLAN" "Status: Completed" "Android NDK relative-time plan must record completed status."
+require_contains "$RELATIVE_TIME_PLAN" "make check" "Android NDK relative-time plan must document make check verification."
+require_contains "$RELATIVE_TIME_PLAN" "focused mutations" "Android NDK relative-time plan must document mutation verification."
 require_contains "jni/checked-size.h" "(unsigned long)count > (unsigned long)((size_t)-1)" "Checked allocation helper must reject counts wider than size_t."
 require_contains "jni/checked-size.h" "elementCount > (size_t)-1 / (size_t)components" "Checked allocation helper must reject component-count overflow."
 require_contains "jni/checked-size.h" "elementCount > (size_t)-1 / componentSize" "Checked allocation helper must reject byte-size overflow."

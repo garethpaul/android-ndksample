@@ -1,5 +1,12 @@
 # Changes
 
+## 2026-06-14
+
+- Replaced Android epoch-millisecond multiplication with validated relative
+  elapsed timing that remains nondecreasing and saturates at `LONG_MAX`.
+- Added portable native boundary coverage for microsecond borrowing, backward
+  clocks, invalid fields, and compiler-width `LONG_MAX` saturation.
+
 ## 2026-06-13
 
 - Made portable GL loader cleanup guard and clear Windows/Linux dynamic-library
