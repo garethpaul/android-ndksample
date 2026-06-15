@@ -19,6 +19,7 @@ PAUSE_TIMELINE_PLAN="docs/plans/2026-06-14-android-ndk-pause-timeline-saturation
 DEVICE_VERIFICATION_PLAN="docs/plans/2026-06-14-android-ndk-device-verification-checklist.md"
 RENDER_THREAD_TIMELINE_PLAN="docs/plans/2026-06-14-android-ndk-render-thread-timeline.md"
 SMOOTHED_TICK_PLAN="docs/plans/2026-06-15-android-ndk-smoothed-tick-overflow.md"
+EXPLICIT_LAUNCHER_EXPORT_PLAN="docs/plans/2026-06-15-explicit-launcher-export.md"
 
 expected_ci_workflow() {
   cat <<'EOF'
@@ -90,6 +91,7 @@ for path in \
   "$SIZE_OVERFLOW_PLAN" \
   "$ELF_CONTRACT_PLAN" \
   "$SMOOTHED_TICK_PLAN" \
+  "$EXPLICIT_LAUNCHER_EXPORT_PLAN" \
   "AndroidManifest.xml" \
   "project.properties" \
   "jni/Android.mk" \
@@ -265,6 +267,66 @@ require_contains "project.properties" "target=Google Inc.:Google APIs:21" "proje
 require_contains "jni/Android.mk" "LOCAL_MODULE := sanangeles" "NDK module name must remain documented in Android.mk."
 require_contains "jni/Application.mk" "APP_ABI := all" "Application.mk must preserve current ABI baseline."
 require_contains "AndroidManifest.xml" 'android:allowBackup="false"' "Manifest must make backup behavior explicit."
+
+exported_count=$(awk '
+  {
+    line = $0
+    while (match(line, /android:exported[[:space:]]*=/)) {
+      count++
+      line = substr(line, RSTART + RLENGTH)
+    }
+  }
+  END { print count + 0 }
+' "$ROOT_DIR/AndroidManifest.xml")
+if [ "$exported_count" -ne 1 ]; then
+  printf '%s\n' "Manifest must contain exactly one explicit exported declaration." >&2
+  exit 1
+fi
+
+demo_activity_block=$(awk '
+  /<activity[[:space:]]/ {
+    capture = 1
+    block = ""
+  }
+  capture {
+    block = block $0 "\n"
+  }
+  capture && /<\/activity>/ {
+    if (index(block, "android:name=\".DemoActivity\"") != 0) {
+      matched++
+      selected = block
+    }
+    capture = 0
+  }
+  END {
+    if (matched != 1) {
+      exit 1
+    }
+    printf "%s", selected
+  }
+' "$ROOT_DIR/AndroidManifest.xml") || {
+  printf '%s\n' "Manifest must keep exactly one named demo activity block." >&2
+  exit 1
+}
+
+for launcher_contract in \
+  'android:name=".DemoActivity"' \
+  'android:exported="true"' \
+  'android.intent.action.MAIN' \
+  'android.intent.category.LAUNCHER'; do
+  if ! printf '%s\n' "$demo_activity_block" | grep -Fq -- "$launcher_contract"; then
+    printf '%s\n' "Demo activity must preserve its explicit launcher boundary: $launcher_contract" >&2
+    exit 1
+  fi
+done
+
+explicit_launcher_guidance="The explicit launcher export boundary is limited to .DemoActivity and preserves its MAIN/LAUNCHER entry point."
+for explicit_launcher_document in AGENTS.md README.md SECURITY.md VISION.md CHANGES.md; do
+  require_contains "$explicit_launcher_document" "$explicit_launcher_guidance" "$explicit_launcher_document must document the explicit launcher export boundary."
+done
+for explicit_launcher_plan_contract in "Status: Completed" "make check" "mutations"; do
+  require_contains "$EXPLICIT_LAUNCHER_EXPORT_PLAN" "$explicit_launcher_plan_contract" "Explicit launcher export plan must preserve completion evidence: $explicit_launcher_plan_contract"
+done
 require_contains "src/com/example/SanAngeles/DemoActivity.java" "public boolean performClick()" "GLSurfaceView touch handling must expose performClick."
 if ! grep -A6 "protected void onPause()" "$ROOT_DIR/src/com/example/SanAngeles/DemoActivity.java" | grep -Fq "if (mGLView != null)"; then
   printf '%s\n' "Activity pause path must guard missing GLSurfaceView instances." >&2

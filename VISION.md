@@ -33,6 +33,7 @@ Priority:
 - Native OpenGL teardown is queued on the render thread before GLSurfaceView pauses.
 - Native timeline transitions share render-thread ownership with rendering and teardown
 - Native animation tick smoothing uses overflow-free floor averaging after validated relative-time subtraction.
+- The explicit launcher export boundary is limited to .DemoActivity and preserves its MAIN/LAUNCHER entry point.
 - Make portable GL partial symbol imports self-clean before failure returns
 - Keep surface dimensions valid before native projection and viewport math
 - Keep JNI source signatures aligned with Java static native declarations

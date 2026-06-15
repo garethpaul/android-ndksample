@@ -2,6 +2,7 @@
 
 ## 2026-06-15
 
+- The explicit launcher export boundary is limited to .DemoActivity and preserves its MAIN/LAUNCHER entry point.
 - Native animation tick smoothing uses overflow-free floor averaging after validated relative-time subtraction.
 
 ## 2026-06-14

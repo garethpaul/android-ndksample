@@ -53,6 +53,7 @@ Legacy Android NDK sample for the San Angeles Observation OpenGL ES demo.
 - Keep `libs/SHA256SUMS` synchronized with checked-in native libraries and use lowercase SHA-256 digests.
 - Native/NDK changes need toolchain, ABI list, and smoke-test notes before replacing runtime libraries.
 - Native OpenGL teardown is queued on the render thread before GLSurfaceView pauses.
+- The explicit launcher export boundary is limited to .DemoActivity and preserves its MAIN/LAUNCHER entry point.
 
 ## Agent workflow
 

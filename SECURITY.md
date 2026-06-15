@@ -51,6 +51,7 @@ Helpful reports include:
 - Android pause timing uses saturated accumulation and nonnegative render-time
   derivation so repeated or extreme pauses cannot trigger signed overflow.
 - Native animation tick smoothing uses overflow-free floor averaging after validated relative-time subtraction.
+- The explicit launcher export boundary is limited to .DemoActivity and preserves its MAIN/LAUNCHER entry point.
 - Native OpenGL teardown is queued on the render thread before GLSurfaceView pauses.
 - Native timeline transitions share render-thread ownership with rendering and
   teardown instead of mutating native timing state from the UI thread.

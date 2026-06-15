@@ -1,11 +1,13 @@
 ---
 title: Android NDK Demo Explicit Launcher Export Boundary
 type: security
-status: planned
+status: completed
 date: 2026-06-15
 ---
 
 # Android NDK Demo Explicit Launcher Export Boundary
+
+Status: Completed
 
 ## Problem Frame
 
@@ -82,3 +84,17 @@ Document the intentional boundary and completed validation evidence.
 - New Android components, permissions, deep links, or intent filters.
 - JNI ownership, native timeline logic, tick smoothing, OpenGL rendering, or
   frame pacing.
+
+## Verification Completed
+
+- `sh -n scripts/check-baseline.sh` passed before the full gate.
+- Repository-root and external-directory `make check` passed with Android SDK
+  and NDK discovery deliberately disabled, matching the canonical hosted gate.
+- Eight isolated hostile mutations were rejected for a missing declaration, a
+  false value, an unrelated declaration, a detached launcher filter, a
+  same-line duplicate, duplicate named activity blocks, missing maintained
+  guidance, and incomplete plan evidence.
+- Exact-path diff, generated-artifact, conflict-marker, dependency/workflow
+  drift, whitespace, and credential-shaped-addition audits passed.
+- No Android SDK lint, NDK rebuild, emulator, GPU, context-loss, physical
+  device, or live OpenGL ES scenario was executed.
