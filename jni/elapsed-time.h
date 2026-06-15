@@ -76,4 +76,20 @@ static long checkedRenderMilliseconds(long elapsed, long paused)
     return elapsed - paused;
 }
 
+static long checkedSmoothedTick(long previousTick,
+                                long currentTick,
+                                long startTick)
+{
+    long relativeTick;
+
+    if (previousTick < 0)
+        previousTick = 0;
+    if (currentTick < 0 || startTick < 0 || currentTick < startTick)
+        return previousTick;
+
+    relativeTick = currentTick - startTick;
+    return previousTick / 2 + relativeTick / 2 +
+           (previousTick % 2 + relativeTick % 2) / 2;
+}
+
 #endif

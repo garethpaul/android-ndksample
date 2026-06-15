@@ -1,6 +1,6 @@
 # Guard Android NDK Smoothed Tick Arithmetic
 
-Status: Planned
+Status: Completed
 
 ## Problem
 
@@ -70,3 +70,22 @@ guidance, completed status, and verification evidence.
 - No Android device, emulator, GPU, context-loss, or long-duration saturated
   timeline was exercised.
 - PR #12 remains stacked on PR #11 and must retain base-first ordering.
+
+## Verification Completed
+
+- The expanded native arithmetic harness passed strict C89 builds under GCC
+  and Clang plus a Clang undefined-behavior sanitizer build.
+- Repository-root and external-directory `make check` passed the canonical
+  SDK/NDK-disabled portable gate, including source contracts, seven-ABI ELF
+  verification, and native arithmetic tests.
+- `sha256sum -c libs/SHA256SUMS` confirmed all seven checked-in native
+  libraries retained their reviewed bytes.
+- Ten isolated hostile mutations were rejected for helper identity, backward
+  ordering, subtraction preconditions, floor remainders, negative prior
+  normalization, renderer overflow regression, integration arguments, maximum
+  boundary coverage, maintained guidance, and plan-completion evidence.
+- Exact-path diff, native-binary, generated-artifact, conflict-marker,
+  dependency/workflow drift, whitespace, and credential-shaped-addition audits
+  passed.
+- No Android device, emulator, GPU, context-loss, or long-duration saturated timeline was exercised;
+  runtime verification remains explicit in `DEVICE_VERIFICATION.md`.

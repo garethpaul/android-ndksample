@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-06-15
+
+- Native animation tick smoothing uses overflow-free floor averaging after validated relative-time subtraction.
+
 ## 2026-06-14
 
 - Native timeline transitions share render-thread ownership with rendering and

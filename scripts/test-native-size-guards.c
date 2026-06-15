@@ -91,6 +91,23 @@ int main(void)
     expect(checkedRenderMilliseconds(LONG_MAX, LONG_MAX - 1) == 1,
            "render timeline handles maximum values");
 
+    expect(checkedSmoothedTick(0, 0, 0) == 0,
+           "smoothed tick accepts zero timeline");
+    expect(checkedSmoothedTick(100, 500, 100) == 250,
+           "smoothed tick preserves normal floor average");
+    expect(checkedSmoothedTick(1, 3, 0) == 2,
+           "smoothed tick preserves odd floor average");
+    expect(checkedSmoothedTick(100, 50, 75) == 100,
+           "smoothed tick preserves prior value for backward input");
+    expect(checkedSmoothedTick(100, -1, 0) == 100,
+           "smoothed tick preserves prior value for negative current input");
+    expect(checkedSmoothedTick(-1, 10, 0) == 5,
+           "smoothed tick normalizes negative prior value");
+    expect(checkedSmoothedTick(LONG_MAX, LONG_MAX, 0) == LONG_MAX,
+           "smoothed tick handles maximum equal inputs");
+    expect(checkedSmoothedTick(LONG_MAX, LONG_MAX, 1) == LONG_MAX - 1,
+           "smoothed tick avoids maximum intermediate overflow");
+
     if (failures != 0)
         return 1;
 

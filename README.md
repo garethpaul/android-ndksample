@@ -82,6 +82,7 @@ Android animation timing uses a validated relative `timeval` delta, avoiding
 nondecreasing pause and resume timing.
 Pause duration accumulates with checked saturation, and render ticks clamp to
 a nonnegative timeline instead of relying on overflow-prone signed offsets.
+Native animation tick smoothing uses overflow-free floor averaging after validated relative-time subtraction.
 Native render calls are ignored after teardown, repeated cleanup is a no-op,
 and repeated native initialization releases the previous resource set first.
 Native OpenGL teardown is queued on the render thread before GLSurfaceView pauses.

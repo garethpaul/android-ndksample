@@ -808,7 +808,7 @@ void appRender(long tick, int width, int height)
         sStartTick = tick;
 
     // Actual tick value is "blurred" a little bit.
-    sTick = (sTick + tick - sStartTick) >> 1;
+    sTick = checkedSmoothedTick(sTick, tick, sStartTick);
 
     // Terminate application after running through the demonstration once.
     if (sTick >= RUN_LENGTH)

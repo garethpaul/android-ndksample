@@ -18,6 +18,7 @@ RELATIVE_TIME_PLAN="docs/plans/2026-06-14-android-ndk-relative-time.md"
 PAUSE_TIMELINE_PLAN="docs/plans/2026-06-14-android-ndk-pause-timeline-saturation.md"
 DEVICE_VERIFICATION_PLAN="docs/plans/2026-06-14-android-ndk-device-verification-checklist.md"
 RENDER_THREAD_TIMELINE_PLAN="docs/plans/2026-06-14-android-ndk-render-thread-timeline.md"
+SMOOTHED_TICK_PLAN="docs/plans/2026-06-15-android-ndk-smoothed-tick-overflow.md"
 
 expected_ci_workflow() {
   cat <<'EOF'
@@ -88,6 +89,7 @@ for path in \
   "$ALLOCATION_FAILURE_PLAN" \
   "$SIZE_OVERFLOW_PLAN" \
   "$ELF_CONTRACT_PLAN" \
+  "$SMOOTHED_TICK_PLAN" \
   "AndroidManifest.xml" \
   "project.properties" \
   "jni/Android.mk" \
@@ -726,6 +728,38 @@ if grep -Eq 'sTimeOffset|_getTime\(\)[[:space:]]*-[[:space:]]*sTimeStopped|sTime
   printf '%s\n' "Android JNI pause timing must not use unchecked offset arithmetic." >&2
   exit 1
 fi
+require_contains "jni/elapsed-time.h" "static long checkedSmoothedTick" "Native tick smoothing must use a checked helper."
+require_contains "jni/elapsed-time.h" "currentTick < startTick" "Native tick smoothing must reject backward relative time."
+require_contains "jni/elapsed-time.h" "relativeTick = currentTick - startTick;" "Native tick smoothing must subtract only after validation."
+require_contains "jni/elapsed-time.h" "previousTick / 2 + relativeTick / 2 +" "Native tick smoothing must avoid an overflowing intermediate sum."
+require_contains "jni/elapsed-time.h" "(previousTick % 2 + relativeTick % 2) / 2;" "Native tick smoothing must preserve floor-average remainders."
+require_contains "jni/demo.c" "sTick = checkedSmoothedTick(sTick, tick, sStartTick);" "Renderer must use checked tick smoothing."
+if grep -Eq 'sTick[[:space:]]*=[[:space:]]*\(sTick[[:space:]]*\+[[:space:]]*tick[[:space:]]*-[[:space:]]*sStartTick\)' "$ROOT_DIR/jni/demo.c"; then
+  printf '%s\n' "Renderer must not restore overflow-prone tick smoothing." >&2
+  exit 1
+fi
+for smoothed_tick_test in \
+  "smoothed tick accepts zero timeline" \
+  "smoothed tick preserves normal floor average" \
+  "smoothed tick preserves odd floor average" \
+  "smoothed tick preserves prior value for backward input" \
+  "smoothed tick preserves prior value for negative current input" \
+  "smoothed tick normalizes negative prior value" \
+  "smoothed tick handles maximum equal inputs" \
+  "smoothed tick avoids maximum intermediate overflow"; do
+  require_contains "scripts/test-native-size-guards.c" "$smoothed_tick_test" "Native timing tests must cover: $smoothed_tick_test"
+done
+smoothed_tick_guidance="Native animation tick smoothing uses overflow-free floor averaging after validated relative-time subtraction."
+for smoothed_tick_document in README.md SECURITY.md VISION.md CHANGES.md; do
+  require_contains "$smoothed_tick_document" "$smoothed_tick_guidance" "$smoothed_tick_document must document overflow-free tick smoothing."
+done
+for smoothed_tick_plan_contract in \
+  "Status: Completed" \
+  "make check" \
+  "hostile mutations" \
+  "No Android device, emulator, GPU, context-loss, or long-duration saturated timeline was exercised"; do
+  require_contains "$SMOOTHED_TICK_PLAN" "$smoothed_tick_plan_contract" "Smoothed-tick plan must preserve completion evidence: $smoothed_tick_plan_contract"
+done
 for pause_timeline_test in \
   "pause duration accumulates normally" \
   "repeated pause durations accumulate" \
