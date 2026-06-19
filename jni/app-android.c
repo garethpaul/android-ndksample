@@ -24,6 +24,7 @@
 #include <stdint.h>
 #include "importgl.h"
 #include "app.h"
+#include "elapsed-time.h"
 
 int   gAppAlive   = 1;
 
@@ -31,17 +32,42 @@ static int  sWindowWidth  = 320;
 static int  sWindowHeight = 480;
 static int  sNativeInitialized = 0;
 static int  sDemoStopped  = 0;
-static long sTimeOffset   = 0;
-static int  sTimeOffsetInit = 0;
+static long sPausedTime   = 0;
 static long sTimeStopped  = 0;
+static struct timeval sTimeOrigin;
+static int  sTimeOriginInit = 0;
+static long sLastElapsedTime = 0;
+
+static void
+_resetTime(void)
+{
+    sTimeOrigin.tv_sec = 0;
+    sTimeOrigin.tv_usec = 0;
+    sTimeOriginInit = 0;
+    sLastElapsedTime = 0;
+}
 
 static long
 _getTime(void)
 {
     struct timeval  now;
 
-    gettimeofday(&now, NULL);
-    return (long)(now.tv_sec*1000 + now.tv_usec/1000);
+    if (gettimeofday(&now, NULL) != 0)
+        return sLastElapsedTime;
+    if (!sTimeOriginInit) {
+        sTimeOrigin = now;
+        sTimeOriginInit = 1;
+        sLastElapsedTime = 0;
+        return 0;
+    }
+
+    sLastElapsedTime = checkedElapsedMilliseconds(
+            (int64_t)now.tv_sec,
+            (int64_t)now.tv_usec,
+            (int64_t)sTimeOrigin.tv_sec,
+            (int64_t)sTimeOrigin.tv_usec,
+            sLastElapsedTime);
+    return sLastElapsedTime;
 }
 
 /* Call to initialize the graphics state */
@@ -54,6 +80,8 @@ Java_com_example_SanAngeles_DemoRenderer_nativeInit( JNIEnv*  env, jclass  clazz
         sNativeInitialized = 0;
     }
 
+    _resetTime();
+
     if (!importGLInit()) {
         __android_log_print(
                 ANDROID_LOG_ERROR,
@@ -65,8 +93,7 @@ Java_com_example_SanAngeles_DemoRenderer_nativeInit( JNIEnv*  env, jclass  clazz
     }
 
     sDemoStopped = 0;
-    sTimeOffset = 0;
-    sTimeOffsetInit = 0;
+    sPausedTime = 0;
     sTimeStopped = 0;
     gAppAlive = 1;
     appInit();
@@ -137,7 +164,10 @@ void _resume()
   /* we resumed the animation, so adjust the time offset
    * to take care of the pause interval. */
     sDemoStopped = 0;
-    sTimeOffset -= _getTime() - sTimeStopped;
+    sPausedTime = checkedPausedMilliseconds(
+            sPausedTime,
+            _getTime(),
+            sTimeStopped);
 }
 
 
@@ -176,14 +206,9 @@ Java_com_example_SanAngeles_DemoRenderer_nativeRender( JNIEnv*  env, jclass  cla
      *       on each iteration.
      */
     if (sDemoStopped) {
-        curTime = sTimeStopped + sTimeOffset;
+        curTime = checkedRenderMilliseconds(sTimeStopped, sPausedTime);
     } else {
-        curTime = _getTime() + sTimeOffset;
-        if (sTimeOffsetInit == 0) {
-            sTimeOffsetInit = 1;
-            sTimeOffset     = -curTime;
-            curTime         = 0;
-        }
+        curTime = checkedRenderMilliseconds(_getTime(), sPausedTime);
     }
 
     //__android_log_print(ANDROID_LOG_INFO, "SanAngeles", "curTime=%ld", curTime);

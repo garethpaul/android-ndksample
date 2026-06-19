@@ -1,7 +1,53 @@
 # Changes
 
+## 2026-06-19
+
+- Made portable GL initialization idempotent and preserved ownership of a
+  retained partial dynamic-library handle when cleanup fails.
+- Reset the full demo camera/tick timeline on native resource initialization,
+  preserved zero as a valid first tick, rejected negative origin ticks, and
+  advanced across delayed camera boundaries without indexing past the track
+  table.
+- Tightened all seven checked-in ELF contracts to require the exact dependency
+  set, no text relocations, and one non-executable GNU stack.
+- Added strict host ownership/timeline tests, hostile fake-ELF mutations, and
+  AddressSanitizer/UndefinedBehaviorSanitizer gates where supported.
+
+## 2026-06-15
+
+- The explicit launcher export boundary is limited to .DemoActivity and preserves its MAIN/LAUNCHER entry point.
+- Native animation tick smoothing uses overflow-free floor averaging after validated relative-time subtraction.
+
+## 2026-06-14
+
+- Native timeline transitions share render-thread ownership with rendering and
+  teardown, removing UI-thread races over native pause state.
+- Added an exact-commit Android NDK device verification matrix for rendering,
+  surface changes, lifecycle timing, context loss, render-thread teardown,
+  process recreation, ABI identity, and privacy-safe evidence, with every runtime row explicitly unexecuted.
+- Native OpenGL teardown is queued on the render thread before GLSurfaceView pauses.
+- Replaced Android epoch-millisecond multiplication with validated relative
+  elapsed timing that remains nondecreasing and saturates at `LONG_MAX`.
+- Replaced unchecked pause offsets with saturated pause accumulation and a
+  nonnegative checked render timeline.
+- Added portable native boundary coverage for microsecond borrowing, backward
+  clocks, invalid fields, and compiler-width `LONG_MAX` saturation.
+
+## 2026-06-13
+
+- Made portable GL loader cleanup guard and clear Windows/Linux dynamic-library
+  handles, then reset imported GL function pointers after successful close so
+  failed or repeated teardown does not reuse invalid state.
+- Made portable GL partial symbol imports self-clean before failure returns for
+  Linux and Windows callers.
+- Added an SDK-free ELF runtime-shape contract for all seven historical ABI
+  libraries, including architecture, SONAME, platform dependency, and exact JNI
+  export verification.
+
 ## 2026-06-12
 
+- Guarded native geometry and allocation-size products against signed and
+  `size_t` overflow, with portable host boundary tests.
 - Replaced native demo allocation assertions with recoverable cleanup and kept
   Android rendering disabled when object initialization cannot complete.
 
@@ -19,6 +65,9 @@
 - Extended the SDK-free baseline to require the CI workflow and completed CI
   plan.
 - Removed the maintainer-specific Android SDK path from the Makefile.
+- Disabled persisted checkout credentials, added ownership for native and CI
+  control paths, and replaced partial workflow checks with one canonical
+  workflow contract.
 
 ## 2026-06-09
 

@@ -59,7 +59,7 @@ static CAMTRACK sCamTracks[] =
     { { 5273, 4992, 650, 373, -50 }, { -4598, -3072, 0, 0, 0 }, 0, 2 },
     { { 3223, -3282, 1075, -393, -25 }, { 1649, -1649, 0, 0, 0 }, 0, 2 }
 };
-#define CAMTRACK_COUNT (sizeof(camTracks) / sizeof(camTracks[0]))
+#define CAMTRACK_COUNT (sizeof(sCamTracks) / sizeof(sCamTracks[0]))
 
 
 #endif // !CAMS_H_INCLUDED

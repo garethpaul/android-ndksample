@@ -33,6 +33,33 @@ Helpful reports include:
 - Pinned, read-only GitHub Actions runs the SDK-free `make check` baseline
   without ambient SDK or NDK discovery; review workflow or native-binary
   provenance changes carefully before merge.
+- Hosted checkout credentials are not persisted. Self-protecting CODEOWNERS
+  assigns CI controls, native source, and checked-in libraries to the repository
+  owner; repository rules should require that approval.
+- `check.yml` remains the only approved workflow until another workflow
+  receives an explicit least-privilege security contract.
+- The ELF runtime-shape contract verifies every checked-in ABI library's
+  architecture, shared-object metadata, exact platform dependency set,
+  non-executable stack, lack of text relocations, and exact JNI export set
+  independently from checksum integrity.
+- Portable GL loader cleanup guards and clears dynamic-library handles before
+  repeated teardown, then resets imported GL function pointers only after a
+  successful close; the Android build remains under `DISABLE_IMPORTGL`.
+- Portable GL partial symbol imports self-clean before failure returns while
+  preserving the close-success boundary for pointer invalidation.
+- Portable GL initialization owns at most one dynamic-library reference and
+  refuses to overwrite a retained partial handle after failed cleanup.
+- Android native timing validates relative `timeval` deltas and saturates
+  unrepresentable elapsed milliseconds instead of overflowing signed `long`.
+- Android pause timing uses saturated accumulation and nonnegative render-time
+  derivation so repeated or extreme pauses cannot trigger signed overflow.
+- Native animation tick smoothing uses overflow-free floor averaging after validated relative-time subtraction.
+- The explicit launcher export boundary is limited to .DemoActivity and preserves its MAIN/LAUNCHER entry point.
+- Native OpenGL teardown is queued on the render thread before GLSurfaceView pauses.
+- Native timeline transitions share render-thread ownership with rendering and
+  teardown instead of mutating native timing state from the UI thread.
+- Native resource initialization resets the complete camera/tick timeline and
+  treats zero as a valid first render tick.
 
 ## Mobile Privacy Notes
 

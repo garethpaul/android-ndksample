@@ -76,9 +76,7 @@ public class DemoActivity extends Activity {
 
     @Override
     protected void onDestroy() {
-        if (mGLView != null) {
-            mGLView.releaseNativeResources();
-        }
+        mGLView = null;
         super.onDestroy();
     }
 
@@ -98,7 +96,7 @@ class DemoGLSurfaceView extends GLSurfaceView {
 
     public boolean onTouchEvent(final MotionEvent event) {
         if (event.getAction() == MotionEvent.ACTION_DOWN) {
-            nativeTogglePauseResume();
+            queueNativeTogglePauseResume();
             performClick();
         }
         return true;
@@ -112,18 +110,39 @@ class DemoGLSurfaceView extends GLSurfaceView {
 
     @Override
     public void onPause() {
+        releaseNativeResources();
         super.onPause();
-        nativePause();
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        nativeResume();
+        queueNativeResume();
+    }
+
+    private void queueNativeTogglePauseResume() {
+        queueEvent(new Runnable() {
+            public void run() {
+                nativeTogglePauseResume();
+            }
+        });
+    }
+
+    private void queueNativeResume() {
+        queueEvent(new Runnable() {
+            public void run() {
+                nativeResume();
+            }
+        });
     }
 
     public void releaseNativeResources() {
-        mRenderer.releaseNativeResources();
+        queueEvent(new Runnable() {
+            public void run() {
+                nativePause();
+                mRenderer.releaseNativeResources();
+            }
+        });
     }
 
 

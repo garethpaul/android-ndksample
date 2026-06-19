@@ -5,8 +5,59 @@ ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 CHECKSUM_PATH_PLAN="docs/plans/2026-06-09-ndk-checksum-path-hygiene.md"
 TEARDOWN_PLAN="docs/plans/2026-06-09-ndk-render-after-teardown.md"
 JAVA_LIFECYCLE_PLAN="docs/plans/2026-06-09-ndk-java-lifecycle-view-guard.md"
+CI_WORKFLOW="$ROOT_DIR/.github/workflows/check.yml"
+CODEOWNERS="$ROOT_DIR/.github/CODEOWNERS"
 CI_PLAN="docs/plans/2026-06-10-ci-baseline.md"
 ALLOCATION_FAILURE_PLAN="docs/plans/2026-06-12-ndk-allocation-failure-recovery.md"
+SIZE_OVERFLOW_PLAN="docs/plans/2026-06-12-native-size-overflow-guards.md"
+ELF_CONTRACT_PLAN="docs/plans/2026-06-13-native-library-elf-contract.md"
+IMPORTGL_DEINIT_PLAN="docs/plans/2026-06-13-importgl-idempotent-deinit.md"
+IMPORTGL_POINTER_RESET_PLAN="docs/plans/2026-06-13-importgl-function-pointer-reset.md"
+IMPORTGL_INIT_FAILURE_PLAN="docs/plans/2026-06-13-importgl-init-failure-cleanup.md"
+RELATIVE_TIME_PLAN="docs/plans/2026-06-14-android-ndk-relative-time.md"
+PAUSE_TIMELINE_PLAN="docs/plans/2026-06-14-android-ndk-pause-timeline-saturation.md"
+DEVICE_VERIFICATION_PLAN="docs/plans/2026-06-14-android-ndk-device-verification-checklist.md"
+RENDER_THREAD_TIMELINE_PLAN="docs/plans/2026-06-14-android-ndk-render-thread-timeline.md"
+SMOOTHED_TICK_PLAN="docs/plans/2026-06-15-android-ndk-smoothed-tick-overflow.md"
+EXPLICIT_LAUNCHER_EXPORT_PLAN="docs/plans/2026-06-15-explicit-launcher-export.md"
+NATIVE_LIFECYCLE_LOADER_PLAN="docs/plans/2026-06-19-native-lifecycle-loader-review.md"
+
+expected_ci_workflow() {
+  cat <<'EOF'
+name: Check
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Run baseline
+        run: make check
+        env:
+          ANDROID_HOME: ""
+          ANDROID_SDK_ROOT: ""
+          NDK_BUILD: "__disabled_ndk_build__"
+EOF
+}
 
 require_file() {
   path=$1
@@ -23,7 +74,7 @@ require_contains() {
   pattern=$2
   message=$3
 
-  if ! grep -Fq "$pattern" "$ROOT_DIR/$path"; then
+  if ! grep -Fq -- "$pattern" "$ROOT_DIR/$path"; then
     printf '%s\n' "$message" >&2
     exit 1
   fi
@@ -38,19 +89,70 @@ for path in \
   "$JAVA_LIFECYCLE_PLAN" \
   "$CI_PLAN" \
   "$ALLOCATION_FAILURE_PLAN" \
+  "$SIZE_OVERFLOW_PLAN" \
+  "$ELF_CONTRACT_PLAN" \
+  "$SMOOTHED_TICK_PLAN" \
+  "$EXPLICIT_LAUNCHER_EXPORT_PLAN" \
+  "$NATIVE_LIFECYCLE_LOADER_PLAN" \
   "AndroidManifest.xml" \
   "project.properties" \
   "jni/Android.mk" \
   "jni/Application.mk" \
   "jni/app-android.c" \
+  "jni/checked-size.h" \
+  "jni/demo-timeline.h" \
   "jni/demo.c" \
   "jni/importgl.c" \
   "jni/license.txt" \
   "jni/license-BSD.txt" \
   "jni/license-LGPL.txt" \
   "libs/SHA256SUMS" \
-  "lint.xml"; do
+  "scripts/test-native-size-guards.c" \
+  "scripts/test-native-size-guards.sh" \
+  "scripts/test-demo-timeline.c" \
+  "scripts/test-demo-timeline.sh" \
+  "scripts/test-importgl-ownership.c" \
+  "scripts/test-importgl-ownership.sh" \
+  "scripts/test-native-library-elf.sh" \
+  "scripts/test-native-sanitizers.sh" \
+  "scripts/test-native-review-mutations.sh" \
+  "scripts/check-native-library-elf.sh" \
+  "lint.xml" \
+  "DEVICE_VERIFICATION.md" \
+  "$DEVICE_VERIFICATION_PLAN"; do
   require_file "$path" "Required baseline file is missing: $path"
+done
+
+for device_contract in \
+  'commit SHA and pull request' \
+  'Android API level, ABI, GPU model' \
+  'First launch' \
+  'Surface resize' \
+  'Background/foreground' \
+  'Context loss' \
+  'Rapid pause/resume' \
+  'Process recreation' \
+  'Render-thread teardown' \
+  'Do not convert `not run` into passing evidence.' \
+  'device serials, account names, notifications' \
+  'every Android, GPU, and lifecycle row as unexecuted'; do
+  require_contains "DEVICE_VERIFICATION.md" "$device_contract" "Android NDK device checklist must keep contract: $device_contract"
+done
+
+if ! grep -Fq 'DEVICE_VERIFICATION.md' "$ROOT_DIR/README.md" || \
+   ! grep -Fq 'explicit unexecuted rows' "$ROOT_DIR/README.md" || \
+   ! grep -Fq 'Android NDK device verification matrix' "$ROOT_DIR/VISION.md" || \
+   ! grep -Fq 'every runtime row explicitly unexecuted' "$ROOT_DIR/CHANGES.md"; then
+  printf '%s\n' 'Repository guidance must document the unexecuted Android NDK device matrix.' >&2
+  exit 1
+fi
+
+for plan_contract in \
+  'Status: Completed' \
+  'make check' \
+  'hostile mutations' \
+  'No Android SDK, NDK rebuild, emulator, GPU, physical device, or live OpenGL ES scenario was executed'; do
+  require_contains "$DEVICE_VERIFICATION_PLAN" "$plan_contract" "Android NDK device plan must keep completion evidence: $plan_contract"
 done
 
 expected_abi_count=0
@@ -133,6 +235,49 @@ require_contains ".gitignore" "obj/" "Generated obj/ directory must be ignored."
 require_contains "README.md" "Ant/NDK Android project" "README must document the legacy Ant/NDK shape."
 require_contains "README.md" "libs/*/libsanangeles.so" "README must document checked-in runtime libraries."
 require_contains "README.md" "libs/SHA256SUMS" "README must document the native library checksum manifest."
+require_contains "Makefile" '$(ROOT)scripts/check-native-library-elf.sh' "make test must run the native library ELF verifier."
+require_contains "scripts/check-native-library-elf.sh" "verify_library arm64-v8a ELF64 AArch64" "ELF verifier must bind arm64-v8a to AArch64 ELF64."
+require_contains "scripts/check-native-library-elf.sh" "verify_library armeabi-v7a ELF32 ARM" "ELF verifier must bind armeabi-v7a to ARM ELF32."
+require_contains "scripts/check-native-library-elf.sh" "verify_library armeabi ELF32 ARM" "ELF verifier must bind armeabi to ARM ELF32."
+require_contains "scripts/check-native-library-elf.sh" "verify_library mips64 ELF64 \"MIPS R3000\"" "ELF verifier must bind mips64 to MIPS ELF64."
+require_contains "scripts/check-native-library-elf.sh" "verify_library mips ELF32 \"MIPS R3000\"" "ELF verifier must bind mips to MIPS ELF32."
+require_contains "scripts/check-native-library-elf.sh" "verify_library x86_64 ELF64 \"Advanced Micro Devices X86-64\"" "ELF verifier must bind x86_64 to ELF64."
+require_contains "scripts/check-native-library-elf.sh" "verify_library x86 ELF32 \"Intel 80386\"" "ELF verifier must bind x86 to ELF32."
+if [ "$(grep -c '^verify_library ' "$ROOT_DIR/scripts/check-native-library-elf.sh" || true)" -ne 7 ]; then
+  printf '%s\n' "ELF verifier must check exactly seven ABI libraries." >&2
+  exit 1
+fi
+require_contains "scripts/check-native-library-elf.sh" "actual_jni_symbols" "ELF verifier must compare the exact JNI export set."
+require_contains "scripts/check-native-library-elf.sh" "invalid_jni_symbols" "ELF verifier must reject invalid application JNI symbol metadata."
+require_contains "scripts/check-native-library-elf.sh" 'if [ "$actual_jni_symbols" != "$expected_jni_symbols" ]; then' "ELF verifier must reject additive or missing application JNI exports."
+require_contains "scripts/check-native-library-elf.sh" "Library soname: [libsanangeles.so]" "ELF verifier must require the sanangeles SONAME."
+require_contains "scripts/check-native-library-elf.sh" "expected_dependencies=" "ELF verifier must compare the exact dependency set."
+require_contains "scripts/check-native-library-elf.sh" 'if [ "$actual_dependencies" != "$expected_dependencies" ]; then' "ELF verifier must reject additive or missing dependencies."
+require_contains "scripts/check-native-library-elf.sh" "grep -Fq TEXTREL" "ELF verifier must reject text relocations."
+require_contains "scripts/check-native-library-elf.sh" 'if [ "$stack_flags" != "RW" ]; then' "ELF verifier must require a non-executable GNU stack."
+require_contains "Makefile" '$(ROOT)scripts/test-native-library-elf.sh' "make test must run hostile ELF checker tests."
+require_contains "Makefile" '$(ROOT)scripts/test-demo-timeline.sh' "make test must run demo timeline tests."
+require_contains "Makefile" '$(ROOT)scripts/test-importgl-ownership.sh' "make test must run ImportGL ownership tests."
+require_contains "Makefile" '$(ROOT)scripts/test-native-sanitizers.sh' "make test must run native sanitizer tests."
+require_contains "Makefile" '$(ROOT)scripts/test-native-review-mutations.sh' "make test must run native review mutations."
+if [ ! -x "$ROOT_DIR/scripts/check-native-library-elf.sh" ]; then
+  printf '%s\n' "Native library ELF verifier must remain executable." >&2
+  exit 1
+fi
+if [ ! -f "$ROOT_DIR/$ELF_CONTRACT_PLAN" ] || \
+   ! grep -Fq "Status: Completed" "$ROOT_DIR/$ELF_CONTRACT_PLAN" || \
+   ! grep -Fq "make check" "$ROOT_DIR/$ELF_CONTRACT_PLAN" || \
+   ! grep -Fq "hostile mutations" "$ROOT_DIR/$ELF_CONTRACT_PLAN"; then
+  printf '%s\n' "Native library ELF contract plan must record completed verification." >&2
+  exit 1
+fi
+for elf_contract_doc in README.md SECURITY.md CHANGES.md; do
+  if ! tr '\n' ' ' < "$ROOT_DIR/$elf_contract_doc" | tr -s '[:space:]' ' ' | \
+      grep -Fiq "ELF runtime-shape contract"; then
+    printf '%s\n' "$elf_contract_doc must document the ELF runtime-shape contract." >&2
+    exit 1
+  fi
+done
 require_contains "README.md" "Do not replace checked-in \`.so\` files" "README must document binary replacement rules."
 require_contains "README.md" "tools/bin/lint" "README must document the SDK-backed lint tool path."
 require_contains "README.md" 'lint" --exitcode .' "README must document lint failure propagation."
@@ -140,6 +285,66 @@ require_contains "project.properties" "target=Google Inc.:Google APIs:21" "proje
 require_contains "jni/Android.mk" "LOCAL_MODULE := sanangeles" "NDK module name must remain documented in Android.mk."
 require_contains "jni/Application.mk" "APP_ABI := all" "Application.mk must preserve current ABI baseline."
 require_contains "AndroidManifest.xml" 'android:allowBackup="false"' "Manifest must make backup behavior explicit."
+
+exported_count=$(awk '
+  {
+    line = $0
+    while (match(line, /android:exported[[:space:]]*=/)) {
+      count++
+      line = substr(line, RSTART + RLENGTH)
+    }
+  }
+  END { print count + 0 }
+' "$ROOT_DIR/AndroidManifest.xml")
+if [ "$exported_count" -ne 1 ]; then
+  printf '%s\n' "Manifest must contain exactly one explicit exported declaration." >&2
+  exit 1
+fi
+
+demo_activity_block=$(awk '
+  /<activity[[:space:]]/ {
+    capture = 1
+    block = ""
+  }
+  capture {
+    block = block $0 "\n"
+  }
+  capture && /<\/activity>/ {
+    if (index(block, "android:name=\".DemoActivity\"") != 0) {
+      matched++
+      selected = block
+    }
+    capture = 0
+  }
+  END {
+    if (matched != 1) {
+      exit 1
+    }
+    printf "%s", selected
+  }
+' "$ROOT_DIR/AndroidManifest.xml") || {
+  printf '%s\n' "Manifest must keep exactly one named demo activity block." >&2
+  exit 1
+}
+
+for launcher_contract in \
+  'android:name=".DemoActivity"' \
+  'android:exported="true"' \
+  'android.intent.action.MAIN' \
+  'android.intent.category.LAUNCHER'; do
+  if ! printf '%s\n' "$demo_activity_block" | grep -Fq -- "$launcher_contract"; then
+    printf '%s\n' "Demo activity must preserve its explicit launcher boundary: $launcher_contract" >&2
+    exit 1
+  fi
+done
+
+explicit_launcher_guidance="The explicit launcher export boundary is limited to .DemoActivity and preserves its MAIN/LAUNCHER entry point."
+for explicit_launcher_document in AGENTS.md README.md SECURITY.md VISION.md CHANGES.md; do
+  require_contains "$explicit_launcher_document" "$explicit_launcher_guidance" "$explicit_launcher_document must document the explicit launcher export boundary."
+done
+for explicit_launcher_plan_contract in "Status: Completed" "make check" "mutations"; do
+  require_contains "$EXPLICIT_LAUNCHER_EXPORT_PLAN" "$explicit_launcher_plan_contract" "Explicit launcher export plan must preserve completion evidence: $explicit_launcher_plan_contract"
+done
 require_contains "src/com/example/SanAngeles/DemoActivity.java" "public boolean performClick()" "GLSurfaceView touch handling must expose performClick."
 if ! grep -A6 "protected void onPause()" "$ROOT_DIR/src/com/example/SanAngeles/DemoActivity.java" | grep -Fq "if (mGLView != null)"; then
   printf '%s\n' "Activity pause path must guard missing GLSurfaceView instances." >&2
@@ -149,13 +354,193 @@ if ! grep -A6 "protected void onResume()" "$ROOT_DIR/src/com/example/SanAngeles/
   printf '%s\n' "Activity resume path must guard missing GLSurfaceView instances." >&2
   exit 1
 fi
-require_contains "src/com/example/SanAngeles/DemoActivity.java" "protected void onDestroy()" "Activity must release native resources during destruction."
-require_contains "src/com/example/SanAngeles/DemoActivity.java" "mGLView.releaseNativeResources();" "Activity destroy path must release GLSurfaceView native resources."
 require_contains "src/com/example/SanAngeles/DemoActivity.java" "public void releaseNativeResources()" "GLSurfaceView must expose native resource cleanup."
+require_contains "src/com/example/SanAngeles/DemoActivity.java" "queueEvent(new Runnable()" "GLSurfaceView cleanup must run on the render thread."
+require_contains "src/com/example/SanAngeles/DemoActivity.java" "private void queueNativeTogglePauseResume()" "Touch timeline changes must use a render-thread helper."
+require_contains "src/com/example/SanAngeles/DemoActivity.java" "private void queueNativeResume()" "Lifecycle resume must use a render-thread helper."
+require_contains "src/com/example/SanAngeles/DemoActivity.java" "mRenderer.releaseNativeResources();" "Queued GL cleanup must delegate to the renderer owner."
 require_contains "src/com/example/SanAngeles/DemoActivity.java" "nativeDone();" "Renderer cleanup must call the native deinitializer."
 require_contains "jni/app-android.c" "Java_com_example_SanAngeles_DemoRenderer_nativeDone" "JNI nativeDone binding must stay present."
 require_contains "jni/app-android.c" "appDeinit();" "nativeDone must deinitialize demo objects."
 require_contains "jni/app-android.c" "importGLDeinit();" "nativeDone must release imported GL bindings."
+
+python3 - "$ROOT_DIR/src/com/example/SanAngeles/DemoActivity.java" <<'PY'
+import pathlib
+import sys
+
+source = pathlib.Path(sys.argv[1]).read_text()
+touch = source[source.index("public boolean onTouchEvent") : source.index("public boolean performClick")]
+pause = source[source.index("public void onPause()") : source.index("public void onResume()")]
+resume = source[source.index("public void onResume()") : source.index("private void queueNativeTogglePauseResume")]
+toggle_helper = source[source.index("private void queueNativeTogglePauseResume") : source.index("private void queueNativeResume")]
+resume_helper = source[source.index("private void queueNativeResume") : source.index("public void releaseNativeResources")]
+release = source[source.index("public void releaseNativeResources") : source.index("DemoRenderer mRenderer")]
+
+if "queueNativeTogglePauseResume();" not in touch or "nativeTogglePauseResume();" in touch:
+    raise SystemExit("Touch timeline changes must be queued on the render thread.")
+if "queueEvent(new Runnable()" not in toggle_helper or "nativeTogglePauseResume();" not in toggle_helper:
+    raise SystemExit("Queued touch timeline helper must invoke native toggle.")
+if "releaseNativeResources();" not in pause or "nativePause();" in pause:
+    raise SystemExit("Lifecycle pause must delegate native work to the render thread.")
+if pause.index("releaseNativeResources();") > pause.index("super.onPause();"):
+    raise SystemExit("Native teardown must be queued before GLSurfaceView pause.")
+if "queueNativeResume();" not in resume or "nativeResume();" in resume:
+    raise SystemExit("Lifecycle resume must delegate native work to the render thread.")
+if resume.index("super.onResume();") > resume.index("queueNativeResume();"):
+    raise SystemExit("GLSurfaceView must resume before native resume is queued.")
+if "queueEvent(new Runnable()" not in resume_helper or "nativeResume();" not in resume_helper:
+    raise SystemExit("Queued resume helper must invoke native resume.")
+required = ["queueEvent(new Runnable()", "nativePause();", "mRenderer.releaseNativeResources();"]
+if any(value not in release for value in required):
+    raise SystemExit("Native pause and teardown must share an ordered render-thread operation.")
+positions = [release.index(value) for value in required]
+if positions != sorted(positions):
+    raise SystemExit("Native pause and teardown must share an ordered render-thread operation.")
+
+destroy = source[source.index("protected void onDestroy()") : source.index("private DemoGLSurfaceView mGLView")]
+if "releaseNativeResources" in destroy or "nativeDone" in destroy:
+    raise SystemExit("Activity destruction must not run GL cleanup on the UI thread.")
+PY
+
+for gl_teardown_doc in AGENTS.md README.md SECURITY.md VISION.md CHANGES.md; do
+  require_contains "$gl_teardown_doc" "Native OpenGL teardown is queued on the render thread before GLSurfaceView pauses." "$gl_teardown_doc must document GL-thread teardown ownership."
+done
+
+for render_thread_timeline_doc in README.md SECURITY.md VISION.md CHANGES.md; do
+  if ! tr '\n' ' ' < "$ROOT_DIR/$render_thread_timeline_doc" | tr -s '[:space:]' ' ' | \
+      grep -Fqi "Native timeline transitions share render-thread ownership with rendering and teardown"; then
+    printf '%s\n' "$render_thread_timeline_doc must document render-thread timeline ownership." >&2
+    exit 1
+  fi
+done
+require_file "$RENDER_THREAD_TIMELINE_PLAN" "Render-thread timeline ownership plan is required."
+for render_thread_plan_contract in "Status: Completed" "make check" "mutations"; do
+  require_contains "$RENDER_THREAD_TIMELINE_PLAN" "$render_thread_plan_contract" "Render-thread timeline plan must record completed verification."
+done
+require_file "docs/plans/2026-06-14-android-ndk-gl-thread-teardown.md" "GL-thread teardown plan is required."
+for gl_teardown_plan_contract in "Status: Completed" "make check" "hostile mutations"; do
+  require_contains "docs/plans/2026-06-14-android-ndk-gl-thread-teardown.md" "$gl_teardown_plan_contract" "GL-thread teardown plan must record completed verification."
+done
+
+IMPORTGL_DEINIT=$(awk '/^void importGLDeinit\(\)/,/^}/' "$ROOT_DIR/jni/importgl.c")
+IMPORTGL_INIT=$(awk '/^int importGLInit\(\)/,/^}/' "$ROOT_DIR/jni/importgl.c")
+IMPORTGL_POINTER_RESET=$(awk '/^static void clearImportedFunctions\(void\)/,/^}/' "$ROOT_DIR/jni/importgl.c")
+IMPORTED_FUNCTIONS=$(printf '%s\n' "$IMPORTGL_INIT" | sed -n 's/^[[:space:]]*IMPORT_FUNC(\([A-Za-z0-9_]*\));[[:space:]]*$/\1/p' | sort)
+RESET_FUNCTIONS=$(printf '%s\n' "$IMPORTGL_POINTER_RESET" | sed -n 's/^[[:space:]]*RESET_FUNC(\([A-Za-z0-9_]*\));[[:space:]]*$/\1/p' | sort)
+
+if [ "$(printf '%s\n' "$IMPORTED_FUNCTIONS" | grep -c .)" -ne 40 ] || \
+   [ "$IMPORTED_FUNCTIONS" != "$RESET_FUNCTIONS" ]; then
+  printf '%s\n' "Portable GL loader cleanup must reset the exact 40-symbol import set." >&2
+  exit 1
+fi
+
+IMPORTGL_DEINIT_COMPACT=$(printf '%s\n' "$IMPORTGL_DEINIT" | tr -d '[:space:]')
+IMPORTGL_INIT_COMPACT=$(printf '%s\n' "$IMPORTGL_INIT" | tr -d '[:space:]')
+if ! printf '%s\n' "$IMPORTGL_INIT_COMPACT" | grep -Fq \
+    'IMPORT_FUNC(glViewport);if(result)sImportsReady=1;elseimportGLDeinit();#endif/*DISABLE_IMPORTGL*/returnresult;'; then
+  printf '%s\n' "Portable GL initialization must self-clean partial imports before returning failure." >&2
+  exit 1
+fi
+if [ "$(printf '%s\n' "$IMPORTGL_INIT" | grep -Fc "importGLDeinit();")" -ne 1 ]; then
+  printf '%s\n' "Portable GL initialization must keep exactly one failure-conditioned cleanup call." >&2
+  exit 1
+fi
+for importgl_pointer_reset_contract in \
+  "if(FreeLibrary(sGLESDLL)!=0){sGLESDLL=NULL;clearImportedFunctions();sImportsReady=0;}" \
+  "if(dlclose(sGLESSO)==0){sGLESSO=NULL;clearImportedFunctions();sImportsReady=0;}"; do
+  if ! printf '%s\n' "$IMPORTGL_DEINIT_COMPACT" | grep -Fq "$importgl_pointer_reset_contract"; then
+    printf '%s\n' "Imported GL function pointers must clear only after successful close: $importgl_pointer_reset_contract" >&2
+    exit 1
+  fi
+done
+
+for importgl_ownership_contract in \
+  "static int sImportsReady = 0;" \
+  "if (sGLESDLL != NULL)" \
+  "if (sGLESSO != NULL)" \
+  "return sImportsReady;"; do
+  require_contains "jni/importgl.c" "$importgl_ownership_contract" "ImportGL ownership is missing: $importgl_ownership_contract"
+done
+require_contains "README.md" "owns at most one dynamic-library reference" "README must document ImportGL library ownership."
+
+if [ "$(printf '%s\n' "$IMPORTGL_DEINIT" | grep -Fc "clearImportedFunctions();")" -ne 2 ]; then
+  printf '%s\n' "Portable GL loader cleanup must clear imported functions once per platform close." >&2
+  exit 1
+fi
+
+for importgl_deinit_contract in \
+  "if (sGLESDLL != NULL)" \
+  "if (FreeLibrary(sGLESDLL) != 0)" \
+  "sGLESDLL = NULL;" \
+  "if (sGLESSO != NULL)" \
+  "if (dlclose(sGLESSO) == 0)" \
+  "sGLESSO = NULL;"; do
+  if ! printf '%s\n' "$IMPORTGL_DEINIT" | grep -Fq "$importgl_deinit_contract"; then
+    printf '%s\n' "Portable GL loader cleanup must keep contract: $importgl_deinit_contract" >&2
+    exit 1
+  fi
+done
+
+if ! printf '%s\n' "$IMPORTGL_DEINIT" | awk '
+  /if \(sGLESDLL != NULL\)/ { windows_guard = NR }
+  /if \(FreeLibrary\(sGLESDLL\) != 0\)/ { windows_close = NR }
+  /sGLESDLL = NULL;/ { windows_reset = NR }
+  /if \(sGLESSO != NULL\)/ { linux_guard = NR }
+  /if \(dlclose\(sGLESSO\) == 0\)/ { linux_close = NR }
+  /sGLESSO = NULL;/ { linux_reset = NR }
+  END {
+    exit !(windows_guard < windows_close && windows_close < windows_reset &&
+           linux_guard < linux_close && linux_close < linux_reset)
+  }
+'; then
+  printf '%s\n' "Portable GL handles must be guarded, closed, then cleared." >&2
+  exit 1
+fi
+
+if [ ! -f "$ROOT_DIR/$IMPORTGL_DEINIT_PLAN" ] || \
+   ! grep -Fq "Status: Completed" "$ROOT_DIR/$IMPORTGL_DEINIT_PLAN" || \
+   ! grep -Fq "make check" "$ROOT_DIR/$IMPORTGL_DEINIT_PLAN" || \
+   ! grep -Fq "hostile mutations" "$ROOT_DIR/$IMPORTGL_DEINIT_PLAN"; then
+  printf '%s\n' "ImportGL deinitialization plan must record completed verification." >&2
+  exit 1
+fi
+
+if [ ! -f "$ROOT_DIR/$IMPORTGL_POINTER_RESET_PLAN" ] || \
+   ! grep -Fq "Status: Completed" "$ROOT_DIR/$IMPORTGL_POINTER_RESET_PLAN" || \
+   ! grep -Fq "Verification: Completed" "$ROOT_DIR/$IMPORTGL_POINTER_RESET_PLAN" || \
+   ! grep -Fq "Eight focused hostile mutations" "$ROOT_DIR/$IMPORTGL_POINTER_RESET_PLAN" || \
+   ! grep -Fq "sha256sum -c libs/SHA256SUMS" "$ROOT_DIR/$IMPORTGL_POINTER_RESET_PLAN"; then
+  printf '%s\n' "ImportGL function-pointer reset plan must record completed verification." >&2
+  exit 1
+fi
+
+if [ ! -f "$ROOT_DIR/$IMPORTGL_INIT_FAILURE_PLAN" ] || \
+   ! grep -Fq "Status: Completed" "$ROOT_DIR/$IMPORTGL_INIT_FAILURE_PLAN" || \
+   ! grep -Fq "make check" "$ROOT_DIR/$IMPORTGL_INIT_FAILURE_PLAN" || \
+   ! grep -Fq "hostile mutations" "$ROOT_DIR/$IMPORTGL_INIT_FAILURE_PLAN"; then
+  printf '%s\n' "ImportGL initialization failure plan must record completed verification." >&2
+  exit 1
+fi
+
+for init_cleanup_doc in AGENTS.md README.md SECURITY.md VISION.md CHANGES.md; do
+  if ! grep -Fq "partial symbol imports self-clean before failure returns" "$ROOT_DIR/$init_cleanup_doc"; then
+    printf '%s\n' "$init_cleanup_doc must document ImportGL initialization cleanup." >&2
+    exit 1
+  fi
+done
+
+for importgl_doc in AGENTS.md README.md SECURITY.md VISION.md CHANGES.md; do
+  if ! tr '\n' ' ' < "$ROOT_DIR/$importgl_doc" | tr -s '[:space:]' ' ' | \
+      grep -Fiq "portable GL loader cleanup"; then
+    printf '%s\n' "$importgl_doc must document portable GL loader cleanup." >&2
+    exit 1
+  fi
+  if ! tr '\n' ' ' < "$ROOT_DIR/$importgl_doc" | tr -s '[:space:]' ' ' | \
+      grep -Fiq "imported GL function pointers"; then
+    printf '%s\n' "$importgl_doc must document imported GL function pointers." >&2
+    exit 1
+  fi
+done
 require_contains "jni/app-android.c" "Java_com_example_SanAngeles_DemoRenderer_nativeInit( JNIEnv*  env, jclass  clazz )" "static nativeInit JNI signature must include jclass."
 require_contains "jni/app-android.c" "Java_com_example_SanAngeles_DemoRenderer_nativeResize( JNIEnv*  env, jclass  clazz, jint w, jint h )" "static nativeResize JNI signature must include jclass."
 require_contains "jni/app-android.c" "Java_com_example_SanAngeles_DemoRenderer_nativeDone( JNIEnv*  env, jclass  clazz )" "static nativeDone JNI signature must include jclass."
@@ -192,7 +577,7 @@ if ! printf '%s\n' "$NATIVE_RENDER" | grep -Fq "sWindowWidth <= 0 || sWindowHeig
   printf '%s\n' "Native render must own the stored-dimension guard." >&2
   exit 1
 fi
-require_contains "jni/app-android.c" "sTimeOffsetInit = 0;" "Native initialization must reset timing state."
+require_contains "jni/app-android.c" "sPausedTime = 0;" "Native initialization must reset paused timing state."
 if grep -Fq "    importGLInit();" "$ROOT_DIR/jni/app-android.c"; then
   printf '%s\n' "Native initialization must not ignore the OpenGL import result." >&2
   exit 1
@@ -212,7 +597,7 @@ done
 
 if ! awk '
   /if \(!importGLInit\(\)\)/ && !guard_line { guard_line = NR }
-  $0 == "    sTimeOffsetInit = 0;" { reset_line = NR }
+  $0 == "    sPausedTime = 0;" { reset_line = NR }
   /appInit\(\);/ && !app_line { app_line = NR }
   END { exit !(guard_line && reset_line && app_line && guard_line < reset_line && reset_line < app_line) }
 ' "$ROOT_DIR/jni/app-android.c"; then
@@ -223,37 +608,73 @@ require_contains "jni/demo.c" "sSuperShapeObjects[a] = NULL;" "Native demo clean
 require_contains "jni/demo.c" "sGroundPlane = NULL;" "Native demo cleanup must null the freed ground-plane pointer."
 require_contains "jni/demo.c" "static int appResourcesReady()" "Native render path must expose a resource-readiness guard."
 require_contains "jni/demo.c" "!appResourcesReady()" "Native render path must skip drawing after resource teardown."
+require_contains "jni/demo.c" "demoTimelineReset(&sTimeline);" "Native initialization must reset the complete demo timeline."
+require_contains "jni/demo.c" "demoTimelineAdvance(&sTimeline, tick);" "Native rendering must use explicit timeline start ownership."
+require_contains "jni/demo.c" "sTimeline.currentCamTrack + 1 < (int)CAMTRACK_COUNT" "Camera advancement must stay within the track table."
+require_contains "jni/cams.h" "sizeof(sCamTracks) / sizeof(sCamTracks[0])" "Camera track count must reference the real table."
+require_contains "README.md" "resets the complete camera/tick timeline" "README must document lifecycle timeline reset."
+for native_review_contract in \
+  "Status: Completed" \
+  "Red-first host tests" \
+  "No Android SDK, NDK rebuild, emulator, physical device"; do
+  require_contains "$NATIVE_LIFECYCLE_LOADER_PLAN" "$native_review_contract" "Native lifecycle review plan must retain evidence: $native_review_contract"
+done
 
 APP_INIT=$(awk '/^void appInit\(\)/,/^}/' "$ROOT_DIR/jni/demo.c")
 if printf '%s\n' "$APP_INIT" | grep -Eq 'assert\(s(SuperShapeObjects\[a\]|GroundPlane) != NULL\)'; then
   printf '%s\n' "Native demo initialization must not abort on allocation failure." >&2
   exit 1
 fi
-for allocation_contract in \
-  "if (sSuperShapeObjects[a] == NULL)" \
-  "if (sGroundPlane == NULL)" \
-  "gAppAlive = 0;" \
-  "appDeinit();" \
-  "return;"; do
-  if ! printf '%s\n' "$APP_INIT" | grep -Fq "$allocation_contract"; then
-    printf '%s\n' "Native allocation recovery is missing: $allocation_contract" >&2
-    exit 1
-  fi
+SUPER_SHAPE_FAILURE=$(printf '%s\n' "$APP_INIT" | awk '/if \(sSuperShapeObjects\[a\] == NULL\)/,/^        }/')
+GROUND_PLANE_FAILURE=$(printf '%s\n' "$APP_INIT" | awk '/if \(sGroundPlane == NULL\)/,/^    }/')
+for allocation_failure in "$SUPER_SHAPE_FAILURE" "$GROUND_PLANE_FAILURE"; do
+  for allocation_contract in \
+    "gAppAlive = 0;" \
+    "appDeinit();" \
+    "return;"; do
+    if ! printf '%s\n' "$allocation_failure" | grep -Fq "$allocation_contract"; then
+      printf '%s\n' "Native allocation failure branch is missing: $allocation_contract" >&2
+      exit 1
+    fi
+  done
 done
 
 NATIVE_INIT=$(awk '/Java_com_example_SanAngeles_DemoRenderer_nativeInit/,/^}/' "$ROOT_DIR/jni/app-android.c")
+NATIVE_ALLOCATION_FAILURE=$(awk '/if \(!gAppAlive\)/,/^    }/' "$ROOT_DIR/jni/app-android.c")
 for allocation_failure_contract in \
-  "gAppAlive = 1;" \
-  "if (!gAppAlive)" \
   "Demo resource initialization failed" \
   "appDeinit();" \
   "importGLDeinit();" \
   "return;"; do
-  if ! printf '%s\n' "$NATIVE_INIT" | grep -Fq "$allocation_failure_contract"; then
+  if ! printf '%s\n' "$NATIVE_ALLOCATION_FAILURE" | grep -Fq "$allocation_failure_contract"; then
     printf '%s\n' "Android JNI allocation failure handling is missing: $allocation_failure_contract" >&2
     exit 1
   fi
 done
+
+for native_init_milestone in \
+  "gAppAlive = 1;" \
+  "appInit();" \
+  "if (!gAppAlive)" \
+  "sNativeInitialized = 1;"; do
+  if [ "$(printf '%s\n' "$NATIVE_INIT" | grep -Fc "$native_init_milestone")" -ne 1 ]; then
+    printf '%s\n' "Android JNI initialization must contain exactly one milestone: $native_init_milestone" >&2
+    exit 1
+  fi
+done
+
+native_alive_line=$(printf '%s\n' "$NATIVE_INIT" | grep -nF "gAppAlive = 1;" | cut -d: -f1)
+native_app_init_line=$(printf '%s\n' "$NATIVE_INIT" | grep -nF "appInit();" | cut -d: -f1)
+native_failure_line=$(printf '%s\n' "$NATIVE_INIT" | grep -nF "if (!gAppAlive)" | cut -d: -f1)
+native_ready_line=$(printf '%s\n' "$NATIVE_INIT" | grep -nF "sNativeInitialized = 1;" | cut -d: -f1)
+if [ -z "$native_alive_line" ] || [ -z "$native_app_init_line" ] || \
+  [ -z "$native_failure_line" ] || [ -z "$native_ready_line" ] || \
+  [ "$native_alive_line" -ge "$native_app_init_line" ] || \
+  [ "$native_app_init_line" -ge "$native_failure_line" ] || \
+  [ "$native_failure_line" -ge "$native_ready_line" ]; then
+  printf '%s\n' "Android JNI initialization must check allocation failure before marking native state ready." >&2
+  exit 1
+fi
 
 require_contains "lint.xml" "LintError" "lint.xml must document the no-classfiles lint limitation."
 require_contains "lint.xml" "UsesMinSdkAttributes" "lint.xml must document the deferred target SDK policy."
@@ -274,20 +695,65 @@ require_contains "Makefile" "test:" "Makefile must expose a test gate."
 require_contains "Makefile" "build:" "Makefile must expose a guarded build gate."
 require_contains "Makefile" "verify: lint test build" "Makefile verify must run lint, test, and build gates."
 require_contains "README.md" "make check" "README must document the make check wrapper."
-require_contains "README.md" "GitHub Actions" "README must document the GitHub Actions check."
 require_contains "README.md" "JNI bindings use static native signatures" "README must document JNI static native signatures."
-require_contains ".github/workflows/check.yml" "permissions:" "CI workflow must declare permissions."
-require_contains ".github/workflows/check.yml" "contents: read" "CI workflow permissions must be read-only."
-require_contains ".github/workflows/check.yml" "runs-on: ubuntu-24.04" "CI workflow must use a fixed Ubuntu runner image."
-require_contains ".github/workflows/check.yml" "cancel-in-progress: true" "CI workflow must cancel superseded runs."
-require_contains ".github/workflows/check.yml" "timeout-minutes: 5" "CI workflow must have a bounded timeout."
-require_contains ".github/workflows/check.yml" "workflow_dispatch:" "CI workflow must support manual dispatch."
-require_contains ".github/workflows/check.yml" "actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10" "CI workflow must pin checkout."
-require_contains ".github/workflows/check.yml" 'ANDROID_HOME: ""' "CI workflow must clear Android SDK discovery."
-require_contains ".github/workflows/check.yml" 'ANDROID_SDK_ROOT: ""' "CI workflow must clear Android SDK root discovery."
-require_contains ".github/workflows/check.yml" 'NDK_BUILD: "__disabled_ndk_build__"' "CI workflow must disable ambient NDK rebuilds."
-require_contains "Makefile" 'ROOT := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))' "Makefile must resolve repository paths from its own location."
-require_contains "Makefile" 'ANDROID_SDK := $(if $(ANDROID_HOME),$(ANDROID_HOME),$(ANDROID_SDK_ROOT))' "Makefile must accept either Android SDK environment variable."
+
+workflow_paths=$(find "$ROOT_DIR/.github/workflows" -type f \( -name '*.yml' -o -name '*.yaml' \) -print)
+if [ "$workflow_paths" != "$CI_WORKFLOW" ]; then
+  printf '%s\n' "check.yml must remain the only approved GitHub Actions workflow." >&2
+  exit 1
+fi
+
+if [ "$(cat "$CI_WORKFLOW")" != "$(expected_ci_workflow)" ]; then
+  printf '%s\n' "GitHub Actions check workflow must match the approved SDK-free NDK security baseline." >&2
+  exit 1
+fi
+
+if [ ! -f "$CODEOWNERS" ] ||
+  [ "$(wc -l < "$CODEOWNERS" | tr -d ' ')" -ne 6 ] ||
+  ! grep -Fxq '/.github/CODEOWNERS @garethpaul' "$CODEOWNERS" ||
+  ! grep -Fxq '/.github/workflows/ @garethpaul' "$CODEOWNERS" ||
+  ! grep -Fxq '/Makefile @garethpaul' "$CODEOWNERS" ||
+  ! grep -Fxq '/scripts/ @garethpaul' "$CODEOWNERS" ||
+  ! grep -Fxq '/jni/ @garethpaul' "$CODEOWNERS" ||
+  ! grep -Fxq '/libs/ @garethpaul' "$CODEOWNERS"; then
+  printf '%s\n' "CODEOWNERS must protect CI controls, native source, and checked-in libraries." >&2
+  exit 1
+fi
+
+for make_contract in \
+  'override ROOT := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))' \
+  'ANDROID_HOME ?=' \
+  'ANDROID_SDK_ROOT ?=' \
+  'ANDROID_SDK := $(if $(ANDROID_HOME),$(ANDROID_HOME),$(ANDROID_SDK_ROOT))' \
+  'ANDROID_LINT_TOOL ?= $(ANDROID_SDK)/tools/bin/lint' \
+  'NDK_BUILD ?= ndk-build'; do
+  if ! grep -Fxq "$make_contract" "$ROOT_DIR/Makefile"; then
+    printf '%s\n' "Makefile must keep exact contract: $make_contract" >&2
+    exit 1
+  fi
+done
+
+if [ "$(grep -Fc '$(ROOT)scripts/check-baseline.sh' "$ROOT_DIR/Makefile")" -ne 2 ] || \
+   [ "$(grep -Fc '$(ROOT)scripts/check-native-library-elf.sh' "$ROOT_DIR/Makefile")" -ne 1 ] || \
+   [ "$(grep -Fc '$(ROOT)scripts/test-native-size-guards.sh' "$ROOT_DIR/Makefile")" -ne 1 ]; then
+  printf '%s\n' "All baseline, ELF, and native-size commands must use the protected root." >&2
+  exit 1
+fi
+
+if [ "$(grep -Fc 'cd $(ROOT) && ANDROID_HOME="$(ANDROID_SDK)" ANDROID_SDK_ROOT="$(ANDROID_SDK)" "$(ANDROID_LINT_TOOL)" --exitcode .; \' "$ROOT_DIR/Makefile")" -ne 1 ]; then
+  printf '%s\n' "Legacy Android lint must preserve its complete rooted command." >&2
+  exit 1
+fi
+
+if [ "$(grep -Fc 'cd $(ROOT) && "$(NDK_BUILD)"; \' "$ROOT_DIR/Makefile")" -ne 1 ]; then
+  printf '%s\n' "Legacy NDK build must preserve its complete rooted command." >&2
+  exit 1
+fi
+
+if ! grep -Fxq "Status: Completed" "$ROOT_DIR/docs/plans/2026-06-14-android-ndk-make-root-override-protection.md"; then
+  printf '%s\n' "Android NDK Make root protection plan must record completed status." >&2
+  exit 1
+fi
 
 if grep -Fq "/home/gjones" "$ROOT_DIR/Makefile"; then
   printf '%s\n' "Makefile must not embed a maintainer-specific Android SDK path." >&2
@@ -297,12 +763,145 @@ if grep -Fq "/home/gjones" "$ROOT_DIR/README.md"; then
   printf '%s\n' "README must not embed a maintainer-specific Android SDK path." >&2
   exit 1
 fi
-require_contains ".github/workflows/check.yml" "make check" "CI workflow must run make check."
 require_contains "$CHECKSUM_PATH_PLAN" "status: completed" "Checksum path hygiene plan must be completed."
 require_contains "$CI_PLAN" "status: completed" "CI baseline plan must be completed."
 require_contains "$CI_PLAN" "make check" "CI baseline plan must document make check verification."
 require_contains "$ALLOCATION_FAILURE_PLAN" "Status: Completed" "NDK allocation failure recovery plan must be completed."
 require_contains "$ALLOCATION_FAILURE_PLAN" "make check" "NDK allocation failure recovery plan must document make check verification."
+require_contains "$SIZE_OVERFLOW_PLAN" "Status: Completed" "Native size overflow plan must record completed status."
+require_contains "$SIZE_OVERFLOW_PLAN" "CodeQL alert 1" "Native size overflow plan must identify the source alert."
+require_contains "$SIZE_OVERFLOW_PLAN" "fresh external clone" "Native size overflow plan must require fresh-clone verification."
+require_contains "$SIZE_OVERFLOW_PLAN" "passed under GCC and Clang" "Native size overflow plan must record compiler verification."
+require_contains "$SIZE_OVERFLOW_PLAN" "All 29 focused arithmetic" "Native size overflow plan must record mutation evidence."
+require_contains "$SIZE_OVERFLOW_PLAN" "b04efd9ab28df9005adb82e5b76ebb64f7f62e9b" "Native size overflow plan must record the verified implementation SHA."
+require_contains "$SIZE_OVERFLOW_PLAN" 'pull-request baseline run `27403851128` and CodeQL run `27403850106`' "Native size overflow plan must record exact hosted run evidence."
+require_contains "$SIZE_OVERFLOW_PLAN" "zero open code-scanning alerts" "Native size overflow plan must record the PR-ref alert result."
+
+require_contains "jni/checked-size.h" "left > LONG_MAX / right" "Checked product helper must reject signed long overflow before multiplication."
+require_contains "jni/elapsed-time.h" "checkedElapsedMilliseconds" "Android elapsed timing must use the portable checked helper."
+require_contains "jni/elapsed-time.h" "secondDelta > LONG_MAX / 1000" "Android elapsed timing must saturate oversized second deltas."
+require_contains "jni/elapsed-time.h" "millisecondRemainder > LONG_MAX % 1000" "Android elapsed timing must reject final addition overflow."
+require_contains "jni/elapsed-time.h" "elapsed < previousElapsed" "Android elapsed timing must remain nondecreasing."
+require_contains "jni/elapsed-time.h" "currentMicroseconds >= 1000000" "Android elapsed timing must reject invalid current microseconds."
+require_contains "jni/elapsed-time.h" "originMicroseconds >= 1000000" "Android elapsed timing must reject invalid origin microseconds."
+require_contains "jni/elapsed-time.h" "currentSeconds < originSeconds" "Android elapsed timing must reject backward clock samples."
+require_contains "jni/elapsed-time.h" "microsecondDelta < 0" "Android elapsed timing must detect microsecond borrowing."
+require_contains "jni/elapsed-time.h" "--secondDelta;" "Android elapsed timing must borrow one second for negative microsecond deltas."
+require_contains "jni/elapsed-time.h" "microsecondDelta += 1000000;" "Android elapsed timing must normalize borrowed microseconds."
+require_contains "jni/app-android.c" '#include "elapsed-time.h"' "Android JNI timing must include the elapsed-time helper."
+require_contains "jni/app-android.c" "static struct timeval sTimeOrigin;" "Android JNI timing must retain a relative time origin."
+require_contains "jni/app-android.c" "_resetTime();" "Android JNI initialization must reset relative timing state."
+require_contains "jni/app-android.c" "sLastElapsedTime = checkedElapsedMilliseconds(" "Android JNI timing must use checked relative elapsed milliseconds."
+relative_reset_line=$(printf '%s\n' "$NATIVE_INIT" | grep -nF "_resetTime();" | cut -d: -f1)
+import_init_line=$(printf '%s\n' "$NATIVE_INIT" | grep -nF "if (!importGLInit())" | cut -d: -f1)
+if [ -z "$relative_reset_line" ] || [ -z "$import_init_line" ] || \
+   [ "$relative_reset_line" -ge "$import_init_line" ]; then
+  printf '%s\n' "Android JNI timing must reset before each OpenGL import initialization attempt." >&2
+  exit 1
+fi
+if grep -Eq 'tv_sec[[:space:]]*\*[[:space:]]*1000|1000[[:space:]]*\*[[:space:]]*now\.tv_sec' "$ROOT_DIR/jni/app-android.c"; then
+  printf '%s\n' "Android JNI timing must not multiply epoch seconds into long milliseconds." >&2
+  exit 1
+fi
+for relative_time_test in \
+  "same-second elapsed milliseconds" \
+  "microsecond borrow elapsed milliseconds" \
+  "backward clock preserves previous elapsed time" \
+  "invalid current microseconds preserve previous elapsed time" \
+  "elapsed time remains nondecreasing" \
+  "elapsed seconds saturate at long maximum" \
+  "elapsed milliseconds saturate at long maximum"; do
+  require_contains "scripts/test-native-size-guards.c" "$relative_time_test" "Native timing tests must cover: $relative_time_test"
+done
+require_contains "$RELATIVE_TIME_PLAN" "Status: Completed" "Android NDK relative-time plan must record completed status."
+require_contains "$RELATIVE_TIME_PLAN" "make check" "Android NDK relative-time plan must document make check verification."
+require_contains "$RELATIVE_TIME_PLAN" "focused mutations" "Android NDK relative-time plan must document mutation verification."
+require_contains "jni/elapsed-time.h" "checkedPausedMilliseconds" "Android pause timing must use checked accumulation."
+require_contains "jni/elapsed-time.h" "accumulatedPaused > LONG_MAX - pauseDelta" "Android pause timing must saturate before addition overflow."
+require_contains "jni/elapsed-time.h" "checkedRenderMilliseconds" "Android render timing must use checked paused-time subtraction."
+require_contains "jni/elapsed-time.h" "elapsed <= paused" "Android render timing must clamp invalid negative timelines."
+require_contains "jni/app-android.c" "static long sPausedTime" "Android JNI timing must retain accumulated paused duration."
+require_contains "jni/app-android.c" "sPausedTime = checkedPausedMilliseconds(" "Android resume must accumulate pauses through the checked helper."
+require_contains "jni/app-android.c" "curTime = checkedRenderMilliseconds(sTimeStopped, sPausedTime);" "Paused frames must use the checked timeline helper."
+require_contains "jni/app-android.c" "curTime = checkedRenderMilliseconds(_getTime(), sPausedTime);" "Active frames must use the checked timeline helper."
+if grep -Eq 'sTimeOffset|_getTime\(\)[[:space:]]*-[[:space:]]*sTimeStopped|sTimeStopped[[:space:]]*\+[[:space:]]*sTimeOffset' "$ROOT_DIR/jni/app-android.c"; then
+  printf '%s\n' "Android JNI pause timing must not use unchecked offset arithmetic." >&2
+  exit 1
+fi
+require_contains "jni/elapsed-time.h" "static long checkedSmoothedTick" "Native tick smoothing must use a checked helper."
+require_contains "jni/elapsed-time.h" "currentTick < startTick" "Native tick smoothing must reject backward relative time."
+require_contains "jni/elapsed-time.h" "relativeTick = currentTick - startTick;" "Native tick smoothing must subtract only after validation."
+require_contains "jni/elapsed-time.h" "previousTick / 2 + relativeTick / 2 +" "Native tick smoothing must avoid an overflowing intermediate sum."
+require_contains "jni/elapsed-time.h" "(previousTick % 2 + relativeTick % 2) / 2;" "Native tick smoothing must preserve floor-average remainders."
+require_contains "jni/demo-timeline.h" "timeline->tick = checkedSmoothedTick" "Renderer timeline must use checked tick smoothing."
+if grep -Eq 'sTick[[:space:]]*=[[:space:]]*\(sTick[[:space:]]*\+[[:space:]]*tick[[:space:]]*-[[:space:]]*sStartTick\)' "$ROOT_DIR/jni/demo.c"; then
+  printf '%s\n' "Renderer must not restore overflow-prone tick smoothing." >&2
+  exit 1
+fi
+for smoothed_tick_test in \
+  "smoothed tick accepts zero timeline" \
+  "smoothed tick preserves normal floor average" \
+  "smoothed tick preserves odd floor average" \
+  "smoothed tick preserves prior value for backward input" \
+  "smoothed tick preserves prior value for negative current input" \
+  "smoothed tick normalizes negative prior value" \
+  "smoothed tick handles maximum equal inputs" \
+  "smoothed tick avoids maximum intermediate overflow"; do
+  require_contains "scripts/test-native-size-guards.c" "$smoothed_tick_test" "Native timing tests must cover: $smoothed_tick_test"
+done
+smoothed_tick_guidance="Native animation tick smoothing uses overflow-free floor averaging after validated relative-time subtraction."
+for smoothed_tick_document in README.md SECURITY.md VISION.md CHANGES.md; do
+  require_contains "$smoothed_tick_document" "$smoothed_tick_guidance" "$smoothed_tick_document must document overflow-free tick smoothing."
+done
+for smoothed_tick_plan_contract in \
+  "Status: Completed" \
+  "make check" \
+  "hostile mutations" \
+  "No Android device, emulator, GPU, context-loss, or long-duration saturated timeline was exercised"; do
+  require_contains "$SMOOTHED_TICK_PLAN" "$smoothed_tick_plan_contract" "Smoothed-tick plan must preserve completion evidence: $smoothed_tick_plan_contract"
+done
+for pause_timeline_test in \
+  "pause duration accumulates normally" \
+  "repeated pause durations accumulate" \
+  "pause duration saturates at long maximum" \
+  "nonpositive pause duration preserves accumulation" \
+  "render timeline excludes paused duration" \
+  "render timeline clamps elapsed before paused duration" \
+  "render timeline handles maximum values"; do
+  require_contains "scripts/test-native-size-guards.c" "$pause_timeline_test" "Native timing tests must cover: $pause_timeline_test"
+done
+require_contains "$PAUSE_TIMELINE_PLAN" "Status: Completed" "Android NDK pause-timeline plan must record completed status."
+require_contains "$PAUSE_TIMELINE_PLAN" "make check" "Android NDK pause-timeline plan must document make check verification."
+require_contains "$PAUSE_TIMELINE_PLAN" "hostile mutations" "Android NDK pause-timeline plan must document mutation verification."
+require_contains "README.md" "Pause duration accumulates with checked saturation" "README must document checked pause accumulation."
+require_contains "SECURITY.md" "Android pause timing uses saturated accumulation" "Security guidance must document pause-time saturation."
+require_contains "CHANGES.md" "unchecked pause offsets with saturated pause accumulation" "Changelog must document checked pause timing."
+require_contains "jni/checked-size.h" "(unsigned long)count > (unsigned long)((size_t)-1)" "Checked allocation helper must reject counts wider than size_t."
+require_contains "jni/checked-size.h" "elementCount > (size_t)-1 / (size_t)components" "Checked allocation helper must reject component-count overflow."
+require_contains "jni/checked-size.h" "elementCount > (size_t)-1 / componentSize" "Checked allocation helper must reject byte-size overflow."
+require_contains "jni/demo.c" "checkedPositiveLongProduct((long)longitudeCount" "Supershape counts must use checked long products."
+require_contains "jni/demo.c" '#include "checked-size.h"' "Native geometry must include the checked-size helper."
+require_contains "jni/demo.c" "checkedPositiveLongProduct((long)(yEnd - yBegin)" "Ground-plane counts must use checked long products."
+require_contains "jni/demo.c" "checkedArrayByteSize(vertices, vertexComponents" "Vertex allocation must use checked byte counts."
+require_contains "jni/demo.c" "checkedArrayByteSize(vertices, 4, sizeof(GLubyte), &colorBytes)" "Color allocation must use checked byte counts."
+require_contains "jni/demo.c" "checkedArrayByteSize(vertices, 3, sizeof(GLfixed), &normalBytes)" "Normal allocation must use checked byte counts."
+require_contains "jni/demo.c" "vertices > INT_MAX" "OpenGL draw counts must reject values outside the int boundary."
+if grep -Eq 'const long triangleCount = longitudeCount \* latitudeCount' "$ROOT_DIR/jni/demo.c"; then
+  printf '%s\n' "Supershape counts must not multiply ints before widening." >&2
+  exit 1
+fi
+require_contains "Makefile" '$(ROOT)scripts/test-native-size-guards.sh' "Makefile test target must run native size boundary tests."
+if [ ! -x "$ROOT_DIR/scripts/test-native-size-guards.sh" ]; then
+  printf '%s\n' "Native size boundary test runner must be executable." >&2
+  exit 1
+fi
+require_contains "scripts/test-native-size-guards.sh" '"$CC" -std=c89 -pedantic -Wall -Wextra -Werror' "Native size tests must compile under strict C89 warnings-as-errors."
+require_contains "scripts/test-native-size-guards.c" "signed long overflow rejected" "Native size tests must cover signed product overflow."
+require_contains "scripts/test-native-size-guards.c" "maximum signed long product accepted" "Native size tests must cover the valid signed product boundary."
+require_contains "scripts/test-native-size-guards.c" "allocation byte overflow rejected" "Native size tests must cover allocation byte overflow."
+require_contains "scripts/test-native-size-guards.c" "maximum allocation byte count accepted" "Native size tests must cover the valid allocation boundary."
+require_contains "README.md" "allocation byte counts use checked products" "README must document native size overflow guards."
+require_contains "CHANGES.md" "allocation-size products against signed" "CHANGES must record native size overflow guards."
 
 if grep -Fq "nativeInit( JNIEnv*  env )" "$ROOT_DIR/jni/app-android.c"; then
   printf '%s\n' "static nativeInit JNI signature must not omit jclass." >&2

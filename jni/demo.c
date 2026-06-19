@@ -30,8 +30,10 @@
 #include "importgl.h"
 
 #include "app.h"
+#include "checked-size.h"
 #include "shapes.h"
 #include "cams.h"
+#include "demo-timeline.h"
 
 
 // Total run length is 20 * camera track base unit length (see cams.h).
@@ -86,12 +88,7 @@ typedef struct {
 } GLOBJECT;
 
 
-static long sStartTick = 0;
-static long sTick = 0;
-
-static int sCurrentCamTrack = 0;
-static long sCurrentCamTrackStartTick = 0;
-static long sNextCamTrackStartTick = 0x7fffffff;
+static DemoTimeline sTimeline = DEMO_TIMELINE_INITIALIZER;
 
 static GLOBJECT *sSuperShapeObjects[SUPERSHAPE_COUNT] = { NULL };
 static GLOBJECT *sGroundPlane = NULL;
@@ -133,18 +130,26 @@ static GLOBJECT * newGLObject(long vertices, int vertexComponents,
                               int useNormalArray)
 {
     GLOBJECT *result;
+    size_t vertexBytes, colorBytes, normalBytes = 0;
+
+    if (vertices > INT_MAX ||
+        !checkedArrayByteSize(vertices, vertexComponents, sizeof(GLfixed),
+                              &vertexBytes) ||
+        !checkedArrayByteSize(vertices, 4, sizeof(GLubyte), &colorBytes) ||
+        (useNormalArray &&
+         !checkedArrayByteSize(vertices, 3, sizeof(GLfixed), &normalBytes)))
+        return NULL;
+
     result = (GLOBJECT *)malloc(sizeof(GLOBJECT));
     if (result == NULL)
         return NULL;
     result->count = vertices;
     result->vertexComponents = vertexComponents;
-    result->vertexArray = (GLfixed *)malloc(vertices * vertexComponents *
-                                            sizeof(GLfixed));
-    result->colorArray = (GLubyte *)malloc(vertices * 4 * sizeof(GLubyte));
+    result->vertexArray = (GLfixed *)malloc(vertexBytes);
+    result->colorArray = (GLubyte *)malloc(colorBytes);
     if (useNormalArray)
     {
-        result->normalArray = (GLfixed *)malloc(vertices * 3 *
-                                                sizeof(GLfixed));
+        result->normalArray = (GLfixed *)malloc(normalBytes);
     }
     else
         result->normalArray = NULL;
@@ -219,12 +224,17 @@ static GLOBJECT * createSuperShape(const float *params)
     const int latitudeEnd = resol2 / 2;    // non-inclusive
     const int longitudeCount = resol1;
     const int latitudeCount = latitudeEnd - latitudeBegin;
-    const long triangleCount = longitudeCount * latitudeCount * 2;
-    const long vertices = triangleCount * 3;
+    long quadCount, triangleCount, vertices;
     GLOBJECT *result;
     float baseColor[3];
     int a, longitude, latitude;
     long currentVertex, currentQuad;
+
+    if (!checkedPositiveLongProduct((long)longitudeCount,
+                                    (long)latitudeCount, &quadCount) ||
+        !checkedPositiveLongProduct(quadCount, 2, &triangleCount) ||
+        !checkedPositiveLongProduct(triangleCount, 3, &vertices))
+        return NULL;
 
     result = newGLObject(vertices, 3, 1);
     if (result == NULL)
@@ -363,11 +373,16 @@ static GLOBJECT * createGroundPlane()
     const int scale = 4;
     const int yBegin = -15, yEnd = 15;    // ends are non-inclusive
     const int xBegin = -15, xEnd = 15;
-    const long triangleCount = (yEnd - yBegin) * (xEnd - xBegin) * 2;
-    const long vertices = triangleCount * 3;
+    long quadCount, triangleCount, vertices;
     GLOBJECT *result;
     int x, y;
     long currentVertex, currentQuad;
+
+    if (!checkedPositiveLongProduct((long)(yEnd - yBegin),
+                                    (long)(xEnd - xBegin), &quadCount) ||
+        !checkedPositiveLongProduct(quadCount, 2, &triangleCount) ||
+        !checkedPositiveLongProduct(triangleCount, 3, &vertices))
+        return NULL;
 
     result = newGLObject(vertices, 2, 0);
     if (result == NULL)
@@ -439,8 +454,9 @@ static void drawFadeQuad()
         -0x10000,  0x10000
     };
 
-    const int beginFade = sTick - sCurrentCamTrackStartTick;
-    const int endFade = sNextCamTrackStartTick - sTick;
+    const int beginFade = sTimeline.tick -
+                          sTimeline.currentCamTrackStartTick;
+    const int endFade = sTimeline.nextCamTrackStartTick - sTimeline.tick;
     const int minFade = beginFade < endFade ? beginFade : endFade;
 
     if (minFade < 1024)
@@ -479,6 +495,8 @@ static void drawFadeQuad()
 void appInit()
 {
     int a;
+
+    demoTimelineReset(&sTimeline);
 
     glEnable(GL_NORMALIZE);
     glEnable(GL_DEPTH_TEST);
@@ -623,7 +641,8 @@ static void drawModels(float zScale)
     for (x = -2; x <= 2; ++x)
     {
         const int shipScale100 = translationScale * 500;
-        const int offs100 = x * shipScale100 + (sTick % shipScale100);
+        const int offs100 = x * shipScale100 +
+                            (sTimeline.tick % shipScale100);
         float offs = offs100 * 0.01f;
         GLfixed fixedOffs = (GLfixed)(offs * 65536);
         glPushMatrix();
@@ -739,16 +758,23 @@ static void camTrack()
     long currentCamTick;
     int a;
 
-    if (sNextCamTrackStartTick <= sTick)
+    if (sTimeline.nextCamTrackStartTick == 0x7fffffffL)
+        sTimeline.nextCamTrackStartTick =
+                sCamTracks[sTimeline.currentCamTrack].len * CAMTRACK_LEN;
+    while (sTimeline.currentCamTrack + 1 < (int)CAMTRACK_COUNT &&
+           sTimeline.nextCamTrackStartTick <= sTimeline.tick)
     {
-        ++sCurrentCamTrack;
-        sCurrentCamTrackStartTick = sNextCamTrackStartTick;
+        ++sTimeline.currentCamTrack;
+        sTimeline.currentCamTrackStartTick =
+                sTimeline.nextCamTrackStartTick;
+        sTimeline.nextCamTrackStartTick =
+                sTimeline.currentCamTrackStartTick +
+                sCamTracks[sTimeline.currentCamTrack].len * CAMTRACK_LEN;
     }
-    sNextCamTrackStartTick = sCurrentCamTrackStartTick +
-                             sCamTracks[sCurrentCamTrack].len * CAMTRACK_LEN;
 
-    cam = &sCamTracks[sCurrentCamTrack];
-    currentCamTick = sTick - sCurrentCamTrackStartTick;
+    cam = &sCamTracks[sTimeline.currentCamTrack];
+    currentCamTick = sTimeline.tick -
+                     sTimeline.currentCamTrackStartTick;
     trackPos = (float)currentCamTick / (CAMTRACK_LEN * cam->len);
 
     for (a = 0; a < 5; ++a)
@@ -785,14 +811,11 @@ void appRender(long tick, int width, int height)
 {
     if (!gAppAlive || !appResourcesReady() || width <= 0 || height <= 0)
         return;
-    if (sStartTick == 0)
-        sStartTick = tick;
-
     // Actual tick value is "blurred" a little bit.
-    sTick = (sTick + tick - sStartTick) >> 1;
+    demoTimelineAdvance(&sTimeline, tick);
 
     // Terminate application after running through the demonstration once.
-    if (sTick >= RUN_LENGTH)
+    if (sTimeline.tick >= RUN_LENGTH)
     {
         gAppAlive = 0;
         return;

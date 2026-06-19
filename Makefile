@@ -2,7 +2,7 @@
 
 ANDROID_HOME ?=
 ANDROID_SDK_ROOT ?=
-ROOT := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+override ROOT := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 ANDROID_SDK := $(if $(ANDROID_HOME),$(ANDROID_HOME),$(ANDROID_SDK_ROOT))
 ANDROID_LINT_TOOL ?= $(ANDROID_SDK)/tools/bin/lint
 NDK_BUILD ?= ndk-build
@@ -17,6 +17,13 @@ lint:
 
 test:
 	$(ROOT)scripts/check-baseline.sh
+	$(ROOT)scripts/check-native-library-elf.sh
+	$(ROOT)scripts/test-native-library-elf.sh
+	$(ROOT)scripts/test-native-size-guards.sh
+	$(ROOT)scripts/test-demo-timeline.sh
+	$(ROOT)scripts/test-importgl-ownership.sh
+	$(ROOT)scripts/test-native-sanitizers.sh
+	$(ROOT)scripts/test-native-review-mutations.sh
 
 build:
 	@if command -v "$(NDK_BUILD)" >/dev/null 2>&1; then \

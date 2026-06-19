@@ -24,6 +24,10 @@ NDK version and smoke-tested on an emulator or device.
 `libs/SHA256SUMS` records the current checksum for each checked-in runtime
 library. Entries must use lowercase SHA-256 digests and repo-relative paths for
 the expected `libs/<abi>/libsanangeles.so` runtime libraries.
+The ELF runtime-shape contract separately verifies each library's ABI class,
+machine, shared-object metadata, SONAME, exact Android/OpenGL dependency set,
+non-executable stack, absence of text relocations, and exact JNI export set.
+This does not prove source-to-binary reproducibility.
 
 ## Verify
 
@@ -42,12 +46,19 @@ make build
 ```
 
 `make lint` runs the SDK-free provenance check and Android lint when the legacy
-SDK lint tool is available. `make test` reruns the SDK-free provenance check.
+SDK lint tool is available. `make test` reruns the SDK-free provenance check,
+validates the ELF runtime-shape contract, and runs strict host arithmetic,
+timeline, loader-ownership, hostile ELF-parser, and sanitizer tests.
 `make build` runs `ndk-build` when available and otherwise reports a clear skip.
 GitHub Actions runs `make check` on pushes and pull requests using the same
 guarded local targets.
 Hosted CI explicitly disables ambient SDK and NDK discovery; local native
 rebuilds require deliberate `ANDROID_HOME` and `NDK_BUILD` configuration.
+
+Use [`DEVICE_VERIFICATION.md`](DEVICE_VERIFICATION.md) for the exact-commit
+Android, GPU, ABI, and lifecycle matrix. It covers launch and rendering,
+surface resize, pause/resume, context loss, render-thread teardown, process
+recreation, privacy-safe evidence, and explicit unexecuted rows.
 
 or run the underlying script directly:
 
@@ -59,20 +70,47 @@ This check validates the repository structure, required native source/license
 files, expected ABI runtime libraries, complete checksum manifest coverage for
 checked-in native libraries, checksum manifest path hygiene, and `obj/` ignore
 policy. It does not require an Android SDK or NDK.
+`scripts/check-native-library-elf.sh` additionally requires `readelf` or
+`llvm-readelf`; it validates the unchanged historical libraries without
+rebuilding them.
 The baseline also verifies that activity destruction calls the existing
 `nativeDone()` JNI cleanup path for demo object and imported GL teardown.
 JNI bindings use static native signatures that include the `jclass` argument
 for the Java static native methods.
 Native pause/resume helpers are idempotent so repeated lifecycle callbacks do
 not corrupt the demo time offset.
+Android animation timing uses a validated relative `timeval` delta, avoiding
+32-bit `long` overflow from epoch-millisecond multiplication while preserving
+nondecreasing pause and resume timing.
+Pause duration accumulates with checked saturation, and render ticks clamp to
+a nonnegative timeline instead of relying on overflow-prone signed offsets.
+Native animation tick smoothing uses overflow-free floor averaging after validated relative-time subtraction.
+The explicit launcher export boundary is limited to .DemoActivity and preserves its MAIN/LAUNCHER entry point.
 Native render calls are ignored after teardown, repeated cleanup is a no-op,
 and repeated native initialization releases the previous resource set first.
+Native OpenGL teardown is queued on the render thread before GLSurfaceView pauses.
+Native timeline transitions share render-thread ownership with rendering and
+teardown, avoiding unsynchronized UI-thread access to native timing state.
 Native initialization stops before demo setup when OpenGL ES imports are
 unavailable, cleans partial imports, and leaves rendering disabled.
+Portable GL loader cleanup guards Windows/Linux library handles and clears them
+only after a successful close, then resets imported GL function pointers so
+repeated teardown does not reuse stale code addresses.
+Portable GL partial symbol imports self-clean before failure returns, so Linux
+and Windows callers do not need a separate failure-only teardown path.
+Portable GL initialization owns at most one dynamic-library reference:
+repeated success is idempotent, and failed cleanup retains the only handle
+rather than overwriting it on retry.
+Demo resource initialization resets the complete camera/tick timeline and uses
+an explicit start marker, so a zero-valued first frame and context recreation
+cannot retain stale animation state; negative first ticks are ignored rather
+than claiming an unusable origin.
 Native surface dimensions are rejected when width or height is non-positive,
 preventing invalid projection aspect-ratio calculations.
 Native allocation failures release partial demo objects, disable rendering,
 and release imported OpenGL bindings instead of aborting the process.
+Native geometry and allocation byte counts use checked products so invalid or
+unrepresentable dimensions fail before integer overflow or allocation.
 
 If the legacy Android SDK tools are available, run the Ant-project lint gate:
 
@@ -96,6 +134,7 @@ Do not replace checked-in `.so` files without documenting:
 - Resulting library checksums.
 - Runtime launch or smoke-test evidence.
 - Confirmation that every checked-in `.so` file is listed in `libs/SHA256SUMS`.
+- Confirmation that the ELF runtime-shape contract passes for every ABI.
 - Confirmation that Java lifecycle changes still invoke native cleanup.
 - Confirmation that rebuilt JNI bindings keep the static native signatures
   aligned with the Java declarations.
@@ -107,6 +146,10 @@ Do not replace checked-in `.so` files without documenting:
 
 `ndk-build` is not currently available in this environment, so binary
 regeneration is deferred.
+See `docs/plans/2026-06-13-native-library-elf-contract.md` for the completed
+ELF metadata and JNI export verification boundary.
+See `docs/plans/2026-06-14-android-ndk-device-verification-checklist.md` for the
+device evidence matrix and runtime non-claims.
 
 ## Modernization Notes
 

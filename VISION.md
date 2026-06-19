@@ -28,10 +28,19 @@ Priority:
 - Keep native pause/resume lifecycle helpers idempotent across repeated calls
 - Keep native rendering guarded after teardown and repeated initialization
 - Keep native initialization fail-closed when OpenGL imports are unavailable
+- Keep portable GL loader cleanup idempotent and imported GL function pointers
+  invalidated only after successful teardown
+- Native OpenGL teardown is queued on the render thread before GLSurfaceView pauses.
+- Native timeline transitions share render-thread ownership with rendering and teardown
+- Native animation tick smoothing uses overflow-free floor averaging after validated relative-time subtraction.
+- The explicit launcher export boundary is limited to .DemoActivity and preserves its MAIN/LAUNCHER entry point.
+- Make portable GL partial symbol imports self-clean before failure returns
 - Keep surface dimensions valid before native projection and viewport math
 - Keep JNI source signatures aligned with Java static native declarations
 - Keep root lint, test, and guarded native build gates available
 - Keep the SDK-free `make check` baseline running in GitHub Actions
+- Keep exact-commit Android NDK device verification matrix evidence separate
+  from portable checks, with unexecuted GPU and lifecycle rows explicit
 - Avoid build changes that break older NDK sample behavior silently
 
 Next priorities:
@@ -40,6 +49,8 @@ Next priorities:
 - Verify or regenerate native libraries with a documented NDK version
 - Modernize project structure only after preserving a known-good baseline
 - Add smoke-test or manual launch verification notes
+- Execute the device verification matrix on an authorized emulator or device
+  with privacy-safe GPU and lifecycle evidence
 
 Contribution rules:
 
