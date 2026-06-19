@@ -25,8 +25,9 @@ NDK version and smoke-tested on an emulator or device.
 library. Entries must use lowercase SHA-256 digests and repo-relative paths for
 the expected `libs/<abi>/libsanangeles.so` runtime libraries.
 The ELF runtime-shape contract separately verifies each library's ABI class,
-machine, shared-object metadata, SONAME, Android/OpenGL dependencies, and exact
-JNI export set. This does not prove source-to-binary reproducibility.
+machine, shared-object metadata, SONAME, exact Android/OpenGL dependency set,
+non-executable stack, absence of text relocations, and exact JNI export set.
+This does not prove source-to-binary reproducibility.
 
 ## Verify
 
@@ -46,7 +47,8 @@ make build
 
 `make lint` runs the SDK-free provenance check and Android lint when the legacy
 SDK lint tool is available. `make test` reruns the SDK-free provenance check,
-validates the ELF runtime-shape contract, and runs strict host size tests.
+validates the ELF runtime-shape contract, and runs strict host arithmetic,
+timeline, loader-ownership, hostile ELF-parser, and sanitizer tests.
 `make build` runs `ndk-build` when available and otherwise reports a clear skip.
 GitHub Actions runs `make check` on pushes and pull requests using the same
 guarded local targets.
@@ -96,6 +98,13 @@ only after a successful close, then resets imported GL function pointers so
 repeated teardown does not reuse stale code addresses.
 Portable GL partial symbol imports self-clean before failure returns, so Linux
 and Windows callers do not need a separate failure-only teardown path.
+Portable GL initialization owns at most one dynamic-library reference:
+repeated success is idempotent, and failed cleanup retains the only handle
+rather than overwriting it on retry.
+Demo resource initialization resets the complete camera/tick timeline and uses
+an explicit start marker, so a zero-valued first frame and context recreation
+cannot retain stale animation state; negative first ticks are ignored rather
+than claiming an unusable origin.
 Native surface dimensions are rejected when width or height is non-positive,
 preventing invalid projection aspect-ratio calculations.
 Native allocation failures release partial demo objects, disable rendering,

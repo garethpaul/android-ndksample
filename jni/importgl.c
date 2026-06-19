@@ -49,6 +49,10 @@ static void *sGLESSO = NULL;
 
 #endif /* DISABLE_IMPORTGL */
 
+#ifndef DISABLE_IMPORTGL
+static int sImportsReady = 0;
+#endif
+
 #define IMPORTGL_NO_FNPTR_DEFS
 #define IMPORTGL_API
 #define IMPORTGL_FNPTRINIT = NULL
@@ -120,6 +124,15 @@ int importGLInit()
     int result = 1;
 
 #ifndef DISABLE_IMPORTGL
+
+#ifdef WIN32
+    if (sGLESDLL != NULL)
+        return sImportsReady;
+#endif
+#ifdef LINUX
+    if (sGLESSO != NULL)
+        return sImportsReady;
+#endif
 
 #undef IMPORT_FUNC
 
@@ -202,7 +215,9 @@ int importGLInit()
     IMPORT_FUNC(glVertexPointer);
     IMPORT_FUNC(glViewport);
 
-    if (!result)
+    if (result)
+        sImportsReady = 1;
+    else
         importGLDeinit();
 
 #endif /* DISABLE_IMPORTGL */
@@ -221,6 +236,7 @@ void importGLDeinit()
         {
             sGLESDLL = NULL;
             clearImportedFunctions();
+            sImportsReady = 0;
         }
     }
 #endif
@@ -232,6 +248,7 @@ void importGLDeinit()
         {
             sGLESSO = NULL;
             clearImportedFunctions();
+            sImportsReady = 0;
         }
     }
 #endif

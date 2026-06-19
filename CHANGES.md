@@ -1,5 +1,18 @@
 # Changes
 
+## 2026-06-19
+
+- Made portable GL initialization idempotent and preserved ownership of a
+  retained partial dynamic-library handle when cleanup fails.
+- Reset the full demo camera/tick timeline on native resource initialization,
+  preserved zero as a valid first tick, rejected negative origin ticks, and
+  advanced across delayed camera boundaries without indexing past the track
+  table.
+- Tightened all seven checked-in ELF contracts to require the exact dependency
+  set, no text relocations, and one non-executable GNU stack.
+- Added strict host ownership/timeline tests, hostile fake-ELF mutations, and
+  AddressSanitizer/UndefinedBehaviorSanitizer gates where supported.
+
 ## 2026-06-15
 
 - The explicit launcher export boundary is limited to .DemoActivity and preserves its MAIN/LAUNCHER entry point.

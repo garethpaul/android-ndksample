@@ -26,6 +26,12 @@ Java_com_example_SanAngeles_DemoRenderer_nativeDone
 Java_com_example_SanAngeles_DemoRenderer_nativeInit
 Java_com_example_SanAngeles_DemoRenderer_nativeRender
 Java_com_example_SanAngeles_DemoRenderer_nativeResize'
+expected_dependencies='libGLESv1_CM.so
+libc.so
+libdl.so
+liblog.so
+libm.so
+libstdc++.so'
 
 verify_library() {
   abi=$1
@@ -66,12 +72,25 @@ verify_library() {
     printf '%s\n' "Native library $abi must declare SONAME libsanangeles.so exactly once." >&2
     exit 1
   fi
-  for dependency in libGLESv1_CM.so libdl.so liblog.so; do
-    if [ "$(printf '%s\n' "$dynamic" | grep -Fc "Shared library: [$dependency]" || true)" -ne 1 ]; then
-      printf '%s\n' "Native library $abi must require $dependency exactly once." >&2
-      exit 1
-    fi
-  done
+  actual_dependencies=$(printf '%s\n' "$dynamic" | sed -n \
+    's/.*Shared library: \[\([^]]*\)\].*/\1/p' | sort)
+  if [ "$actual_dependencies" != "$expected_dependencies" ]; then
+    printf '%s\n' "Unexpected native dependency set for $abi." >&2
+    printf '%s\n' "$actual_dependencies" >&2
+    exit 1
+  fi
+  if printf '%s\n' "$dynamic" | grep -Fq TEXTREL; then
+    printf '%s\n' "Native library $abi must not require text relocations." >&2
+    exit 1
+  fi
+
+  program_headers=$("$READELF" --program-headers --wide "$library")
+  stack_flags=$(printf '%s\n' "$program_headers" | \
+    awk '$1 == "GNU_STACK" {print $(NF - 1)}')
+  if [ "$stack_flags" != "RW" ]; then
+    printf '%s\n' "Native library $abi must declare one non-executable GNU stack." >&2
+    exit 1
+  fi
 
   symbols=$("$READELF" --dyn-syms --wide "$library")
   invalid_jni_symbols=$(printf '%s\n' "$symbols" | awk \

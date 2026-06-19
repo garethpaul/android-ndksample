@@ -18,7 +18,12 @@ lint:
 test:
 	$(ROOT)scripts/check-baseline.sh
 	$(ROOT)scripts/check-native-library-elf.sh
+	$(ROOT)scripts/test-native-library-elf.sh
 	$(ROOT)scripts/test-native-size-guards.sh
+	$(ROOT)scripts/test-demo-timeline.sh
+	$(ROOT)scripts/test-importgl-ownership.sh
+	$(ROOT)scripts/test-native-sanitizers.sh
+	$(ROOT)scripts/test-native-review-mutations.sh
 
 build:
 	@if command -v "$(NDK_BUILD)" >/dev/null 2>&1; then \

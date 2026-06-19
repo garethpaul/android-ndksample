@@ -20,6 +20,7 @@ DEVICE_VERIFICATION_PLAN="docs/plans/2026-06-14-android-ndk-device-verification-
 RENDER_THREAD_TIMELINE_PLAN="docs/plans/2026-06-14-android-ndk-render-thread-timeline.md"
 SMOOTHED_TICK_PLAN="docs/plans/2026-06-15-android-ndk-smoothed-tick-overflow.md"
 EXPLICIT_LAUNCHER_EXPORT_PLAN="docs/plans/2026-06-15-explicit-launcher-export.md"
+NATIVE_LIFECYCLE_LOADER_PLAN="docs/plans/2026-06-19-native-lifecycle-loader-review.md"
 
 expected_ci_workflow() {
   cat <<'EOF'
@@ -92,12 +93,14 @@ for path in \
   "$ELF_CONTRACT_PLAN" \
   "$SMOOTHED_TICK_PLAN" \
   "$EXPLICIT_LAUNCHER_EXPORT_PLAN" \
+  "$NATIVE_LIFECYCLE_LOADER_PLAN" \
   "AndroidManifest.xml" \
   "project.properties" \
   "jni/Android.mk" \
   "jni/Application.mk" \
   "jni/app-android.c" \
   "jni/checked-size.h" \
+  "jni/demo-timeline.h" \
   "jni/demo.c" \
   "jni/importgl.c" \
   "jni/license.txt" \
@@ -106,6 +109,13 @@ for path in \
   "libs/SHA256SUMS" \
   "scripts/test-native-size-guards.c" \
   "scripts/test-native-size-guards.sh" \
+  "scripts/test-demo-timeline.c" \
+  "scripts/test-demo-timeline.sh" \
+  "scripts/test-importgl-ownership.c" \
+  "scripts/test-importgl-ownership.sh" \
+  "scripts/test-native-library-elf.sh" \
+  "scripts/test-native-sanitizers.sh" \
+  "scripts/test-native-review-mutations.sh" \
   "scripts/check-native-library-elf.sh" \
   "lint.xml" \
   "DEVICE_VERIFICATION.md" \
@@ -241,7 +251,15 @@ require_contains "scripts/check-native-library-elf.sh" "actual_jni_symbols" "ELF
 require_contains "scripts/check-native-library-elf.sh" "invalid_jni_symbols" "ELF verifier must reject invalid application JNI symbol metadata."
 require_contains "scripts/check-native-library-elf.sh" 'if [ "$actual_jni_symbols" != "$expected_jni_symbols" ]; then' "ELF verifier must reject additive or missing application JNI exports."
 require_contains "scripts/check-native-library-elf.sh" "Library soname: [libsanangeles.so]" "ELF verifier must require the sanangeles SONAME."
-require_contains "scripts/check-native-library-elf.sh" "libGLESv1_CM.so libdl.so liblog.so" "ELF verifier must require Android and OpenGL dependencies."
+require_contains "scripts/check-native-library-elf.sh" "expected_dependencies=" "ELF verifier must compare the exact dependency set."
+require_contains "scripts/check-native-library-elf.sh" 'if [ "$actual_dependencies" != "$expected_dependencies" ]; then' "ELF verifier must reject additive or missing dependencies."
+require_contains "scripts/check-native-library-elf.sh" "grep -Fq TEXTREL" "ELF verifier must reject text relocations."
+require_contains "scripts/check-native-library-elf.sh" 'if [ "$stack_flags" != "RW" ]; then' "ELF verifier must require a non-executable GNU stack."
+require_contains "Makefile" '$(ROOT)scripts/test-native-library-elf.sh' "make test must run hostile ELF checker tests."
+require_contains "Makefile" '$(ROOT)scripts/test-demo-timeline.sh' "make test must run demo timeline tests."
+require_contains "Makefile" '$(ROOT)scripts/test-importgl-ownership.sh' "make test must run ImportGL ownership tests."
+require_contains "Makefile" '$(ROOT)scripts/test-native-sanitizers.sh' "make test must run native sanitizer tests."
+require_contains "Makefile" '$(ROOT)scripts/test-native-review-mutations.sh' "make test must run native review mutations."
 if [ ! -x "$ROOT_DIR/scripts/check-native-library-elf.sh" ]; then
   printf '%s\n' "Native library ELF verifier must remain executable." >&2
   exit 1
@@ -419,7 +437,7 @@ fi
 IMPORTGL_DEINIT_COMPACT=$(printf '%s\n' "$IMPORTGL_DEINIT" | tr -d '[:space:]')
 IMPORTGL_INIT_COMPACT=$(printf '%s\n' "$IMPORTGL_INIT" | tr -d '[:space:]')
 if ! printf '%s\n' "$IMPORTGL_INIT_COMPACT" | grep -Fq \
-    'IMPORT_FUNC(glViewport);if(!result)importGLDeinit();#endif/*DISABLE_IMPORTGL*/returnresult;'; then
+    'IMPORT_FUNC(glViewport);if(result)sImportsReady=1;elseimportGLDeinit();#endif/*DISABLE_IMPORTGL*/returnresult;'; then
   printf '%s\n' "Portable GL initialization must self-clean partial imports before returning failure." >&2
   exit 1
 fi
@@ -428,13 +446,22 @@ if [ "$(printf '%s\n' "$IMPORTGL_INIT" | grep -Fc "importGLDeinit();")" -ne 1 ];
   exit 1
 fi
 for importgl_pointer_reset_contract in \
-  "if(FreeLibrary(sGLESDLL)!=0){sGLESDLL=NULL;clearImportedFunctions();}" \
-  "if(dlclose(sGLESSO)==0){sGLESSO=NULL;clearImportedFunctions();}"; do
+  "if(FreeLibrary(sGLESDLL)!=0){sGLESDLL=NULL;clearImportedFunctions();sImportsReady=0;}" \
+  "if(dlclose(sGLESSO)==0){sGLESSO=NULL;clearImportedFunctions();sImportsReady=0;}"; do
   if ! printf '%s\n' "$IMPORTGL_DEINIT_COMPACT" | grep -Fq "$importgl_pointer_reset_contract"; then
     printf '%s\n' "Imported GL function pointers must clear only after successful close: $importgl_pointer_reset_contract" >&2
     exit 1
   fi
 done
+
+for importgl_ownership_contract in \
+  "static int sImportsReady = 0;" \
+  "if (sGLESDLL != NULL)" \
+  "if (sGLESSO != NULL)" \
+  "return sImportsReady;"; do
+  require_contains "jni/importgl.c" "$importgl_ownership_contract" "ImportGL ownership is missing: $importgl_ownership_contract"
+done
+require_contains "README.md" "owns at most one dynamic-library reference" "README must document ImportGL library ownership."
 
 if [ "$(printf '%s\n' "$IMPORTGL_DEINIT" | grep -Fc "clearImportedFunctions();")" -ne 2 ]; then
   printf '%s\n' "Portable GL loader cleanup must clear imported functions once per platform close." >&2
@@ -581,6 +608,17 @@ require_contains "jni/demo.c" "sSuperShapeObjects[a] = NULL;" "Native demo clean
 require_contains "jni/demo.c" "sGroundPlane = NULL;" "Native demo cleanup must null the freed ground-plane pointer."
 require_contains "jni/demo.c" "static int appResourcesReady()" "Native render path must expose a resource-readiness guard."
 require_contains "jni/demo.c" "!appResourcesReady()" "Native render path must skip drawing after resource teardown."
+require_contains "jni/demo.c" "demoTimelineReset(&sTimeline);" "Native initialization must reset the complete demo timeline."
+require_contains "jni/demo.c" "demoTimelineAdvance(&sTimeline, tick);" "Native rendering must use explicit timeline start ownership."
+require_contains "jni/demo.c" "sTimeline.currentCamTrack + 1 < (int)CAMTRACK_COUNT" "Camera advancement must stay within the track table."
+require_contains "jni/cams.h" "sizeof(sCamTracks) / sizeof(sCamTracks[0])" "Camera track count must reference the real table."
+require_contains "README.md" "resets the complete camera/tick timeline" "README must document lifecycle timeline reset."
+for native_review_contract in \
+  "Status: Completed" \
+  "Red-first host tests" \
+  "No Android SDK, NDK rebuild, emulator, physical device"; do
+  require_contains "$NATIVE_LIFECYCLE_LOADER_PLAN" "$native_review_contract" "Native lifecycle review plan must retain evidence: $native_review_contract"
+done
 
 APP_INIT=$(awk '/^void appInit\(\)/,/^}/' "$ROOT_DIR/jni/demo.c")
 if printf '%s\n' "$APP_INIT" | grep -Eq 'assert\(s(SuperShapeObjects\[a\]|GroundPlane) != NULL\)'; then
@@ -795,7 +833,7 @@ require_contains "jni/elapsed-time.h" "currentTick < startTick" "Native tick smo
 require_contains "jni/elapsed-time.h" "relativeTick = currentTick - startTick;" "Native tick smoothing must subtract only after validation."
 require_contains "jni/elapsed-time.h" "previousTick / 2 + relativeTick / 2 +" "Native tick smoothing must avoid an overflowing intermediate sum."
 require_contains "jni/elapsed-time.h" "(previousTick % 2 + relativeTick % 2) / 2;" "Native tick smoothing must preserve floor-average remainders."
-require_contains "jni/demo.c" "sTick = checkedSmoothedTick(sTick, tick, sStartTick);" "Renderer must use checked tick smoothing."
+require_contains "jni/demo-timeline.h" "timeline->tick = checkedSmoothedTick" "Renderer timeline must use checked tick smoothing."
 if grep -Eq 'sTick[[:space:]]*=[[:space:]]*\(sTick[[:space:]]*\+[[:space:]]*tick[[:space:]]*-[[:space:]]*sStartTick\)' "$ROOT_DIR/jni/demo.c"; then
   printf '%s\n' "Renderer must not restore overflow-prone tick smoothing." >&2
   exit 1
