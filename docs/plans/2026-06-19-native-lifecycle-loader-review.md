@@ -40,9 +40,10 @@ animation timing, JNI boundaries, and manifest exports.
 - Fake-`readelf` hostile tests proved the verifier accepted an extra dependency
   before the policy fix and now reject extra dependencies, text relocations,
   and executable stacks.
-- Strict C89 tests run with warnings as errors. Linux CI uses AddressSanitizer
-  plus UndefinedBehaviorSanitizer; macOS uses UndefinedBehaviorSanitizer because
-  even a trivial Apple AddressSanitizer probe hangs in this host environment.
+- Strict C89 arithmetic/timeline tests and a strict C99 legacy-loader test run
+  with warnings as errors. Linux CI uses AddressSanitizer plus
+  UndefinedBehaviorSanitizer; macOS uses UndefinedBehaviorSanitizer because even
+  a trivial Apple AddressSanitizer probe hangs in this host environment.
 - `make check` validates the unchanged checked-in library hashes and all seven
   ABI contracts. No checked-in `.so` was rebuilt or replaced.
 

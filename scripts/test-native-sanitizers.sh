@@ -11,22 +11,22 @@ if [ "$(uname -s)" = Linux ]; then
   sanitizers=address,undefined
 fi
 
-common_flags="-std=c89 -pedantic -Wall -Wextra -Werror -fno-omit-frame-pointer -fsanitize=$sanitizers"
+common_flags="-pedantic -Wall -Wextra -Werror -fno-omit-frame-pointer -fsanitize=$sanitizers"
 
 # shellcheck disable=SC2086
-"$CC" $common_flags -Wno-unused-function \
+"$CC" -std=c89 $common_flags -Wno-unused-function \
   "$ROOT_DIR/scripts/test-native-size-guards.c" \
   -o "$TMP_DIR/test-native-size-guards"
 "$TMP_DIR/test-native-size-guards"
 
 # shellcheck disable=SC2086
-"$CC" $common_flags -Wno-unused-function \
+"$CC" -std=c89 $common_flags -Wno-unused-function \
   "$ROOT_DIR/scripts/test-demo-timeline.c" \
   -o "$TMP_DIR/test-demo-timeline"
 "$TMP_DIR/test-demo-timeline"
 
 # shellcheck disable=SC2086
-"$CC" $common_flags -Wno-strict-prototypes \
+"$CC" -std=c99 $common_flags -Wno-strict-prototypes \
   -I"$ROOT_DIR/scripts/fake-gl" \
   "$ROOT_DIR/scripts/test-importgl-ownership.c" \
   -o "$TMP_DIR/test-importgl-ownership"
