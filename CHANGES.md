@@ -1,5 +1,11 @@
 # Changes
 
+## 2026-06-25 07:36:49 PDT
+
+- ELF runtime-shape checks reject embedded RPATH and RUNPATH search paths.
+- Added hostile fake-ELF coverage and a verifier-bypass mutation so checked-in
+  libraries cannot acquire runtime loader search paths without failing review.
+
 ## 2026-06-19
 
 - Made portable GL initialization idempotent and preserved ownership of a

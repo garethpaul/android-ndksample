@@ -38,7 +38,7 @@ perl -0pi -e 's/sizeof\(sCamTracks\)/sizeof(camTracks)/' \
 expect_failure track-count \
   "$TMP_DIR/track-count/scripts/check-baseline.sh"
 
-for mode in dependency textrel stack; do
+for mode in dependency textrel stack search-path; do
   copy_repo "$TMP_DIR/elf-$mode"
 done
 perl -0pi -e 's/if \[ "\$actual_dependencies" != "\$expected_dependencies" \]; then/if false; then/' \
@@ -53,5 +53,9 @@ perl -0pi -e 's/if \[ "\$stack_flags" != "RW" \]; then/if false; then/' \
   "$TMP_DIR/elf-stack/scripts/check-native-library-elf.sh"
 expect_failure elf-stack \
   "$TMP_DIR/elf-stack/scripts/test-native-library-elf.sh"
+perl -0pi -e 's/if printf '\''%s\\n'\'' "\$dynamic" \| grep -Eq '\''\\\(\(RPATH\|RUNPATH\)\\\)'\''; then/if false; then/' \
+  "$TMP_DIR/elf-search-path/scripts/check-native-library-elf.sh"
+expect_failure elf-search-path \
+  "$TMP_DIR/elf-search-path/scripts/test-native-library-elf.sh"
 
 printf '%s\n' "Native review mutation tests passed."

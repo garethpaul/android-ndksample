@@ -26,7 +26,9 @@ library. Entries must use lowercase SHA-256 digests and repo-relative paths for
 the expected `libs/<abi>/libsanangeles.so` runtime libraries.
 The ELF runtime-shape contract separately verifies each library's ABI class,
 machine, shared-object metadata, SONAME, exact Android/OpenGL dependency set,
-non-executable stack, absence of text relocations, and exact JNI export set.
+non-executable stack, absence of text relocations, absence of embedded dynamic
+loader search paths, and exact JNI export set.
+ELF runtime-shape checks reject embedded RPATH and RUNPATH search paths.
 This does not prove source-to-binary reproducibility.
 
 ## Verify
