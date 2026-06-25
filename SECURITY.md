@@ -40,8 +40,10 @@ Helpful reports include:
   receives an explicit least-privilege security contract.
 - The ELF runtime-shape contract verifies every checked-in ABI library's
   architecture, shared-object metadata, exact platform dependency set,
-  non-executable stack, lack of text relocations, and exact JNI export set
+  non-executable stack, lack of text relocations, lack of embedded loader search
+  paths, and exact JNI export set
   independently from checksum integrity.
+- ELF runtime-shape checks reject embedded RPATH and RUNPATH search paths.
 - Portable GL loader cleanup guards and clears dynamic-library handles before
   repeated teardown, then resets imported GL function pointers only after a
   successful close; the Android build remains under `DISABLE_IMPORTGL`.

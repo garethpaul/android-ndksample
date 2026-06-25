@@ -50,6 +50,12 @@ HEADER
     if [ "${ELF_TEST_MODE:-valid}" = text-relocation ]; then
       printf ' 0x00000016 (TEXTREL) 0x0\n'
     fi
+    if [ "${ELF_TEST_MODE:-valid}" = rpath ]; then
+      printf ' 0x0000000f (RPATH) Library rpath: [/data/local/tmp]\n'
+    fi
+    if [ "${ELF_TEST_MODE:-valid}" = runpath ]; then
+      printf ' 0x0000001d (RUNPATH) Library runpath: [\$ORIGIN]\n'
+    fi
     ;;
   --dyn-syms)
     for symbol in \
@@ -81,7 +87,7 @@ run_checker() {
 }
 
 run_checker valid
-for mode in unexpected-dependency text-relocation executable-stack; do
+for mode in unexpected-dependency text-relocation executable-stack rpath runpath; do
   if run_checker "$mode"; then
     printf '%s\n' "FAIL: ELF checker accepted $mode" >&2
     exit 1

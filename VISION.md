@@ -23,6 +23,7 @@ Priority:
 - Make the demo's OpenGL ES 1.x assumptions clear
 - Keep checked-in native libraries covered by checksum provenance
 - Keep checksum manifests constrained to repo-relative expected ABI paths
+- ELF runtime-shape checks reject embedded RPATH and RUNPATH search paths.
 - Keep Java lifecycle teardown wired to the native cleanup path
 - Keep Java pause/resume lifecycle callbacks safe when the GL view is missing
 - Keep native pause/resume lifecycle helpers idempotent across repeated calls

@@ -94,6 +94,12 @@ Approach:
 - Shell syntax, workflow YAML parsing, `git diff --check`, checksum validation,
   and a targeted secret scan passed.
 
+## Follow-Up
+
+`docs/plans/2026-06-25-native-elf-search-path-boundary.md` extends this runtime
+shape contract to reject embedded `RPATH` and `RUNPATH` dynamic loader search
+paths without changing the checked-in library bytes.
+
 ## Acceptance Criteria
 
 - All seven unchanged historical libraries pass their exact ABI and ELF

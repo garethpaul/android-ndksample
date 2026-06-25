@@ -83,6 +83,10 @@ verify_library() {
     printf '%s\n' "Native library $abi must not require text relocations." >&2
     exit 1
   fi
+  if printf '%s\n' "$dynamic" | grep -Eq '\((RPATH|RUNPATH)\)'; then
+    printf '%s\n' "Native library $abi must not embed a dynamic library search path." >&2
+    exit 1
+  fi
 
   program_headers=$("$READELF" --program-headers --wide "$library")
   stack_flags=$(printf '%s\n' "$program_headers" | \

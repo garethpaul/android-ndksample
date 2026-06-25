@@ -11,6 +11,7 @@ CI_PLAN="docs/plans/2026-06-10-ci-baseline.md"
 ALLOCATION_FAILURE_PLAN="docs/plans/2026-06-12-ndk-allocation-failure-recovery.md"
 SIZE_OVERFLOW_PLAN="docs/plans/2026-06-12-native-size-overflow-guards.md"
 ELF_CONTRACT_PLAN="docs/plans/2026-06-13-native-library-elf-contract.md"
+ELF_SEARCH_PATH_PLAN="docs/plans/2026-06-25-native-elf-search-path-boundary.md"
 IMPORTGL_DEINIT_PLAN="docs/plans/2026-06-13-importgl-idempotent-deinit.md"
 IMPORTGL_POINTER_RESET_PLAN="docs/plans/2026-06-13-importgl-function-pointer-reset.md"
 IMPORTGL_INIT_FAILURE_PLAN="docs/plans/2026-06-13-importgl-init-failure-cleanup.md"
@@ -91,6 +92,7 @@ for path in \
   "$ALLOCATION_FAILURE_PLAN" \
   "$SIZE_OVERFLOW_PLAN" \
   "$ELF_CONTRACT_PLAN" \
+  "$ELF_SEARCH_PATH_PLAN" \
   "$SMOOTHED_TICK_PLAN" \
   "$EXPLICIT_LAUNCHER_EXPORT_PLAN" \
   "$NATIVE_LIFECYCLE_LOADER_PLAN" \
@@ -254,6 +256,9 @@ require_contains "scripts/check-native-library-elf.sh" "Library soname: [libsana
 require_contains "scripts/check-native-library-elf.sh" "expected_dependencies=" "ELF verifier must compare the exact dependency set."
 require_contains "scripts/check-native-library-elf.sh" 'if [ "$actual_dependencies" != "$expected_dependencies" ]; then' "ELF verifier must reject additive or missing dependencies."
 require_contains "scripts/check-native-library-elf.sh" "grep -Fq TEXTREL" "ELF verifier must reject text relocations."
+require_contains "scripts/check-native-library-elf.sh" "grep -Eq '\\((RPATH|RUNPATH)\\)'" "ELF verifier must reject embedded dynamic search paths."
+require_contains "scripts/test-native-library-elf.sh" 'ELF_TEST_MODE:-valid}" = rpath' "Hostile ELF tests must inject RPATH."
+require_contains "scripts/test-native-library-elf.sh" 'ELF_TEST_MODE:-valid}" = runpath' "Hostile ELF tests must inject RUNPATH."
 require_contains "scripts/check-native-library-elf.sh" 'if [ "$stack_flags" != "RW" ]; then' "ELF verifier must require a non-executable GNU stack."
 require_contains "Makefile" '$(ROOT)scripts/test-native-library-elf.sh' "make test must run hostile ELF checker tests."
 require_contains "Makefile" '$(ROOT)scripts/test-demo-timeline.sh' "make test must run demo timeline tests."
@@ -277,6 +282,18 @@ for elf_contract_doc in README.md SECURITY.md CHANGES.md; do
     printf '%s\n' "$elf_contract_doc must document the ELF runtime-shape contract." >&2
     exit 1
   fi
+done
+elf_search_path_guidance="ELF runtime-shape checks reject embedded RPATH and RUNPATH search paths."
+for elf_search_path_doc in AGENTS.md README.md SECURITY.md VISION.md CHANGES.md; do
+  require_contains "$elf_search_path_doc" "$elf_search_path_guidance" "$elf_search_path_doc must document the ELF search-path boundary."
+done
+for elf_search_path_plan_contract in \
+  "Status: Completed" \
+  "make check" \
+  "external-directory" \
+  "hostile ELF search-path mutations were rejected" \
+  "No native library bytes were modified"; do
+  require_contains "$ELF_SEARCH_PATH_PLAN" "$elf_search_path_plan_contract" "ELF search-path plan must preserve completion evidence."
 done
 require_contains "README.md" "Do not replace checked-in \`.so\` files" "README must document binary replacement rules."
 require_contains "README.md" "tools/bin/lint" "README must document the SDK-backed lint tool path."
