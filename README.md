@@ -31,6 +31,54 @@ loader search paths, and exact JNI export set.
 ELF runtime-shape checks reject embedded RPATH and RUNPATH search paths.
 This does not prove source-to-binary reproducibility.
 
+## Getting Started
+
+### SDK-free quick start
+
+The maintained path needs a POSIX shell, GNU Make, a host C compiler,
+`sha256sum`, and either `readelf` or `llvm-readelf`. It does not require an
+Android SDK, NDK, emulator, or device:
+
+```sh
+git clone https://github.com/garethpaul/android-ndksample.git
+cd android-ndksample
+make check
+```
+
+This validates source/documentation contracts, all checked-in library hashes
+and ELF metadata, portable native boundaries, hostile mutations, and sanitizer
+tests when supported by the host compiler. It does not assemble or launch an
+Android application.
+
+### Optional legacy Android tools
+
+`project.properties` targets Google APIs 21. There is no Gradle wrapper and no generated build.xml in a clean checkout, so there is no maintained APK assembly
+command. Do not infer Gradle or Ant support from the source layout.
+
+If an intentionally selected legacy SDK still provides `tools/bin/lint`, run:
+
+```sh
+ANDROID_HOME=/path/to/android-sdk \
+ANDROID_SDK_ROOT=/path/to/android-sdk \
+make lint
+```
+
+The repository does not pin an Android NDK version. To exercise only the
+native makefile with a reviewed `ndk-build` executable, run:
+
+```sh
+NDK_BUILD=/path/to/ndk-build make build
+```
+
+`jni/Application.mk` declares `APP_ABI := all`; the actual ABI set depends on
+the selected NDK and may not include all seven historical checked-in library
+directories. A `make build` skip is not a successful native rebuild. Do not
+replace `libs/*/libsanangeles.so` until the exact NDK, command, ABI outputs,
+checksums, ELF verification, and authorized device evidence are recorded.
+
+Use [`DEVICE_VERIFICATION.md`](DEVICE_VERIFICATION.md) for launch, rendering,
+lifecycle, context-loss, ABI, and privacy-safe evidence requirements.
+
 ## Verify
 
 Run the SDK-free baseline check through the root wrapper:

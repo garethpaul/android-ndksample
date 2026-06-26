@@ -1,5 +1,65 @@
 # Changes
 
+## 2026-06-25 23:48 PDT - P2 - Add root setup and build boundaries
+
+### Summary
+
+Added a single root-level quick start that separates supported SDK-free
+verification from optional legacy lint/native commands and unproven APK or
+binary-reproduction claims.
+
+### Work completed
+
+- Documented portable prerequisites, clone/setup, and `make check` behavior.
+- Recorded the Google APIs 21 target and the absence of a Gradle wrapper and
+  generated Ant `build.xml`.
+- Documented explicit SDK lint and `NDK_BUILD` overrides, `APP_ABI := all`
+  interpretation, build-skip semantics, and device-evidence requirements.
+- Added a completed plan, fail-closed documentation contracts, and advanced the
+  roadmap to documented NDK regeneration.
+
+### Threads
+
+- None; repository manifests, makefiles, binary contracts, and plans were
+  reviewed directly.
+
+### Files changed
+
+- `README.md` — SDK-free quick start and optional legacy build boundaries.
+- `docs/plans/2026-06-25-root-setup-build-documentation.md` — decision and
+  residual-risk record.
+- `scripts/check-baseline.sh` — durable setup, non-claim, plan, and roadmap
+  contracts.
+- `VISION.md` — removed the completed root documentation priority.
+- `CHANGES.md` — this cycle record.
+
+### Validation
+
+- Red `sh scripts/check-baseline.sh` — rejected the missing setup plan.
+- `make check` — passed provenance, seven-ABI ELF, native boundary, hostile
+  parser, and ASan/UBSan tests; SDK lint and `ndk-build` skipped explicitly.
+- External-directory `make -f /absolute/path/Makefile check` — passed.
+- Twelve hostile setup-documentation mutations — rejected missing quick-start,
+  target, build-system, native-command, ABI, non-claim, plan, and roadmap
+  contracts.
+- `git diff --check` — passed.
+
+### Bugs / findings
+
+- P2 developer workflow: existing verification details were comprehensive but
+  lacked one setup sequence and did not plainly state that the checkout cannot
+  assemble an APK.
+
+### Blockers
+
+- No Android SDK, pinned NDK, generated Ant project, emulator, or device is
+  available; no APK, binary reproducibility, or runtime claim is made.
+
+### Next action
+
+- Select and document an NDK version, then regenerate libraries only with ABI,
+  checksum, ELF, and device evidence.
+
 ## 2026-06-25 07:36:49 PDT
 
 - ELF runtime-shape checks reject embedded RPATH and RUNPATH search paths.

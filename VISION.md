@@ -46,7 +46,6 @@ Priority:
 
 Next priorities:
 
-- Add root-level setup and build documentation
 - Verify or regenerate native libraries with a documented NDK version
 - Modernize project structure only after preserving a known-good baseline
 - Add smoke-test or manual launch verification notes

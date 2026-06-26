@@ -22,6 +22,7 @@ RENDER_THREAD_TIMELINE_PLAN="docs/plans/2026-06-14-android-ndk-render-thread-tim
 SMOOTHED_TICK_PLAN="docs/plans/2026-06-15-android-ndk-smoothed-tick-overflow.md"
 EXPLICIT_LAUNCHER_EXPORT_PLAN="docs/plans/2026-06-15-explicit-launcher-export.md"
 NATIVE_LIFECYCLE_LOADER_PLAN="docs/plans/2026-06-19-native-lifecycle-loader-review.md"
+ROOT_SETUP_PLAN="docs/plans/2026-06-25-root-setup-build-documentation.md"
 
 expected_ci_workflow() {
   cat <<'EOF'
@@ -96,6 +97,7 @@ for path in \
   "$SMOOTHED_TICK_PLAN" \
   "$EXPLICIT_LAUNCHER_EXPORT_PLAN" \
   "$NATIVE_LIFECYCLE_LOADER_PLAN" \
+  "$ROOT_SETUP_PLAN" \
   "AndroidManifest.xml" \
   "project.properties" \
   "jni/Android.mk" \
@@ -123,6 +125,37 @@ for path in \
   "DEVICE_VERIFICATION.md" \
   "$DEVICE_VERIFICATION_PLAN"; do
   require_file "$path" "Required baseline file is missing: $path"
+done
+
+for setup_contract in \
+  "## Getting Started" \
+  "### SDK-free quick start" \
+  "git clone https://github.com/garethpaul/android-ndksample.git" \
+  "cd android-ndksample" \
+  "make check" \
+  "Google APIs 21" \
+  "no Gradle wrapper" \
+  "no generated build.xml" \
+  'NDK_BUILD=/path/to/ndk-build make build' \
+  'A `make build` skip is not a successful native rebuild' \
+  '`APP_ABI := all`' \
+  "does not pin an Android NDK version" \
+  'Use [`DEVICE_VERIFICATION.md`](DEVICE_VERIFICATION.md) for launch'; do
+  require_contains "README.md" "$setup_contract" "README must preserve root setup/build guidance: $setup_contract"
+done
+
+if grep -Fq "Add root-level setup and build documentation" "$ROOT_DIR/VISION.md"; then
+  printf '%s\n' "VISION must not retain the completed root setup documentation priority." >&2
+  exit 1
+fi
+
+for setup_plan_contract in \
+  "Status: Completed" \
+  "SDK-free quick start" \
+  "No APK assembly claim" \
+  "hostile setup-documentation mutations" \
+  "make check"; do
+  require_contains "$ROOT_SETUP_PLAN" "$setup_plan_contract" "Root setup plan must preserve completion evidence: $setup_plan_contract"
 done
 
 for device_contract in \
