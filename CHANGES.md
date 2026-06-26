@@ -1,5 +1,56 @@
 # Changes
 
+## 2026-06-26 10:20 PDT - P3 - Re-audit native lifecycle boundaries
+
+### Summary
+
+Re-audited the Android-owned JNI lifecycle, render-thread teardown, timeline
+arithmetic, allocation guards, dynamic loader ownership, and checked-in ELF
+contracts. No new Android correctness or security change was justified.
+
+### Work completed
+
+- Confirmed pause, resume, render, and teardown remain serialized through the
+  GLSurfaceView render thread.
+- Confirmed failed or partial OpenGL imports retain fail-closed ownership and
+  cannot overwrite a live dynamic-library handle.
+- Reviewed the unused desktop Linux source separately and declined to mix its
+  unaudited display-initialization path into the Android sample maintenance scope.
+
+### Threads
+
+- Started: native lifecycle re-audit — inspect recent ownership and timing work.
+- Continued: checked-in binary provenance — reran checksum and ELF contracts.
+- Stopped: desktop Linux initialization change — inactive in the Android build
+  and not supported by current repository verification.
+
+### Files changed
+
+- `CHANGES.md` — records the audit evidence and no-change decision.
+
+### Validation
+
+- `make check` — passed provenance, seven-ABI ELF, size, timeline, ImportGL,
+  AddressSanitizer/UBSan, and hostile mutation gates.
+- Android SDK lint and `ndk-build` rebuild skipped because those tools are not
+  configured locally.
+
+### Bugs / findings
+
+- No new Android-owned defect established.
+- The legacy desktop Linux path remains outside the active Android build and
+  should only change with dedicated desktop build/runtime coverage.
+
+### Blockers
+
+- Physical-device rendering and a reproducible legacy NDK rebuild remain
+  external verification boundaries.
+
+### Next action
+
+- Preserve the current native ownership contracts until device evidence or a
+  reproducible NDK toolchain establishes a specific failing boundary.
+
 ## 2026-06-25 23:48 PDT - P2 - Add root setup and build boundaries
 
 ### Summary
